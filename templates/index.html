@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>International Trade Flow Predictor</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Banner for sources and rate-limit info -->
+    <div id="info-banner" style="background:#f8f9fa;border-bottom:1px solid #e0e0e0;padding:6px 16px;font-size:13px;">
+      Sources: UN COMTRADE, WTO, World Bank. Limit: 1 request/sec, 100 requests/hour.
+    </div>
+    <!-- Tab Navigation -->
+    <nav>
+  <ul id="main-tabs" class="tab-bar">
+    <li class="tab active" data-tab="basics" tabindex="0" aria-selected="true">Basics</li>
+    <li class="tab" data-tab="exports-country" tabindex="0" aria-selected="false">Exports by Country</li>
+    <li class="tab" data-tab="imports-country" tabindex="0" aria-selected="false">Imports by Country</li>
+    <li class="tab" data-tab="exports-product" tabindex="0" aria-selected="false">Exports by Product</li>
+    <li class="tab" data-tab="imports-product" tabindex="0" aria-selected="false">Imports by Product</li>
+    <li class="tab" data-tab="rankings" tabindex="0" aria-selected="false">Rankings</li>
+    <li class="tab" data-tab="bilateral" tabindex="0" aria-selected="false">Bilateral Trade</li>
+    <li class="tab" data-tab="data-download" tabindex="0" aria-selected="false">Data Download</li>
+    <li class="tab" data-tab="prediction" tabindex="0" aria-selected="false">Prediction (ML)</li>
+  </ul>
+</nav>
+<style>
+.tab-bar {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px 0;
+  border-bottom: 2px solid #e4e4e4;
+  background: #f9f9fa;
+}
+.tab-bar .tab {
+  padding: 12px 28px 10px 28px;
+  margin: 0 2px;
+  border: none;
+  background: none;
+  font-size: 16px;
+  color: #444;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: background 0.18s, color 0.18s;
+  outline: none;
+  position: relative;
+}
+.tab-bar .tab.active,
+.tab-bar .tab:focus {
+  background: #fff;
+  color: #1976d2;
+  box-shadow: 0 -2px 8px rgba(25,118,210,0.07);
+  border-bottom: 2px solid #1976d2;
+  z-index: 2;
+}
+.tab-bar .tab:hover:not(.active) {
+  background: #e3e9f6;
+  color: #1976d2;
+}
+</style>
+    <!-- Tab Content Panels -->
+    <div id="tab-content-basics" class="tab-content" style="display:block;">
+    <div class="container">
+        <h1>International Trade Flow Predictor</h1>
+        <div id="alert" class="alert" style="display:none;"></div>
+        <form id="tradeForm">
+            <label for="reporterCode">Reporter Country:</label>
+            <select id="reporterCode" name="reporterCode"></select>
+            <label for="partnerCode">Partner Country:</label>
+            <select id="partnerCode" name="partnerCode"></select>
+            <label for="period">Year:</label>
+            <input type="text" id="period" name="period" value="2022" placeholder="e.g. 2022" title="Year (e.g. 2022)">
+            <label for="cmdCode">Commodity Code (HS or TOTAL):</label>
+            <input type="text" id="cmdCode" name="cmdCode" value="TOTAL" placeholder="e.g. TOTAL or 1001" title="HS code or TOTAL for all commodities">
+            <label for="flowCode">Flow (M=Import, X=Export, blank=All):</label>
+            <input type="text" id="flowCode" name="flowCode" placeholder="M, X or leave blank" title="M = Import, X = Export, blank = All">
+            <button type="submit">Fetch Trade Data</button>
+        </form>
+        <div id="spinner" class="spinner" style="display:none;"></div>
+        <div id="results"></div>
+        <canvas id="tradeChart" style="margin-top:2em;max-width:100%;display:none;"></canvas>
+
+    </div>
+    <!-- Select2 for searchable dropdowns -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <!-- leaflet for world map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="/static/js/country_codes.js"></script>
+    <script src="/static/js/main.js"></script>
+    <div id="worldMap" style="width:100%;height:360px;margin-top:2em;"></div>
+    <div id="extraVisualizations" style="margin-top:2em;"></div>
+    <script>
+      // Populate country dropdowns from COUNTRY_CODES
+      document.addEventListener('DOMContentLoaded', function() {
+        function populateCountrySelect(selectId, defaultCode) {
+          const select = document.getElementById(selectId);
+          if (!select || typeof COUNTRY_CODES === 'undefined') return;
+          select.innerHTML = '';
+          COUNTRY_CODES.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.code;
+            opt.textContent = c.name + ' (' + c.code + ')';
+            if (c.code === defaultCode) opt.selected = true;
+            select.appendChild(opt);
+          });
+          // Make dropdown searchable with Select2
+          window.$ && window.$(select).select2 && window.$(select).select2();
+        }
+        populateCountrySelect('reporterCode', '842');
+        populateCountrySelect('partnerCode', '156');
+      });
+    </script>
+    <!-- jQuery for select2 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    </div>
+    <div id="tab-content-exports-country" class="tab-content" style="display:none;">
+  <h3>Exports by Country</h3>
+  <form id="exportsCountryForm" style="margin-bottom:1em;">
+    <label for="exportsCountryYear">Year:</label>
+    <input type="number" id="exportsCountryYear" name="exportsCountryYear" value="2022" min="2000" max="2100" style="width:90px;">
+    <label for="exportsCountryCommodity">Commodity Code (HS or TOTAL):</label>
+    <input type="text" id="exportsCountryCommodity" name="exportsCountryCommodity" value="TOTAL" style="width:110px;">
+    <label for="exportsCountryFlow">Flow:</label>
+    <select id="exportsCountryFlow" name="exportsCountryFlow">
+      <option value="X">Export</option>
+      <option value="M">Import</option>
+      <option value="">All</option>
+    </select>
+    <button type="submit">Show Table</button>
+  </form>
+  <button id="exportsCountryDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
+  <div id="exportsCountryResults"></div>
+  <div id="exportsCountryChart" style="margin-top:2em;"></div>
+</div>
+    <div id="tab-content-imports-country" class="tab-content" style="display:none;">
+  <h3>Imports by Country</h3>
+  <form id="importsCountryForm" style="margin-bottom:1em;">
+    <label for="importsCountryYear">Year:</label>
+    <input type="number" id="importsCountryYear" name="importsCountryYear" value="2022" min="2000" max="2100" style="width:90px;">
+    <label for="importsCountryCommodity">Commodity Code (HS or TOTAL):</label>
+    <input type="text" id="importsCountryCommodity" name="importsCountryCommodity" value="TOTAL" style="width:110px;">
+    <label for="importsCountryFlow">Flow:</label>
+    <select id="importsCountryFlow" name="importsCountryFlow">
+      <option value="M">Import</option>
+      <option value="X">Export</option>
+      <option value="">All</option>
+    </select>
+    <button type="submit">Show Table</button>
+  </form>
+  <button id="importsCountryDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
+  <div id="importsCountryResults"></div>
+  <div id="importsCountryChart" style="margin-top:2em;"></div>
+</div>
+    <div id="tab-content-exports-product" class="tab-content" style="display:none;">
+  <h3>Exports by Product</h3>
+  <form id="exportsProductForm" style="margin-bottom:1em;">
+    <label for="exportsProductCountry">Country:</label>
+    <select id="exportsProductCountry" name="exportsProductCountry"></select>
+    <label for="exportsProductYear">Year:</label>
+    <input type="number" id="exportsProductYear" name="exportsProductYear" value="2022" min="2000" max="2100" style="width:90px;">
+    <button type="submit">Show Table</button>
+  </form>
+  <button id="exportsProductDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
+  <div id="exportsProductResults"></div>
+  <div id="exportsProductChart" style="margin-top:2em;"></div>
+</div>
+    <div id="tab-content-imports-product" class="tab-content" style="display:none;">
+  <h3>Imports by Product</h3>
+  <form id="importsProductForm" style="margin-bottom:1em;">
+    <label for="importsProductCountry">Country:</label>
+    <select id="importsProductCountry" name="importsProductCountry"></select>
+    <label for="importsProductYear">Year:</label>
+    <input type="number" id="importsProductYear" name="importsProductYear" value="2022" min="2000" max="2100" style="width:90px;">
+    <button type="submit">Show Table</button>
+  </form>
+  <button id="importsProductDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
+  <div id="importsProductResults"></div>
+  <div id="importsProductChart" style="margin-top:2em;"></div>
+</div>
+    <div id="tab-content-rankings" class="tab-content" style="display:none;">
+  <h3>Ranking of Countries</h3>
+  <form id="rankingsForm" style="margin-bottom:1em;">
+    <label for="rankingsYear">Year:</label>
+    <input type="number" id="rankingsYear" name="rankingsYear" value="2022" min="2000" max="2100" style="width:90px;">
+    <label for="rankingsCommodity">Commodity Code (HS or TOTAL):</label>
+    <input type="text" id="rankingsCommodity" name="rankingsCommodity" value="TOTAL" style="width:110px;">
+    <label for="rankingsFlow">Flow:</label>
+    <select id="rankingsFlow" name="rankingsFlow">
+      <option value="X">Exporters</option>
+      <option value="M">Importers</option>
+    </select>
+    <button type="submit">Show Rankings</button>
+  </form>
+  <button id="rankingsDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
+  <div id="rankingsResults"></div>
+  <div id="rankingsChart" style="margin-top:2em;"></div>
+</div>
+    <div id="tab-content-bilateral" class="tab-content" style="display:none;">
+  <h3>Bilateral Trade</h3>
+  <form id="bilateralForm" style="margin-bottom:1em;">
+    <label for="bilateralReporter">Reporter Country:</label>
+    <select id="bilateralReporter" name="bilateralReporter"></select>
+    <label for="bilateralPartner">Partner Country:</label>
+    <select id="bilateralPartner" name="bilateralPartner"></select>
+    <label for="bilateralYear">Year:</label>
+    <input type="number" id="bilateralYear" name="bilateralYear" value="2022" min="2000" max="2100" style="width:90px;">
+    <label for="bilateralCommodity">Commodity Code (HS or TOTAL):</label>
+    <input type="text" id="bilateralCommodity" name="bilateralCommodity" value="TOTAL" style="width:110px;">
+    <button type="submit">Show Trade</button>
+  </form>
+  <button id="bilateralDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
+  <div id="bilateralResults"></div>
+  <div id="bilateralChart" style="margin-top:2em;"></div>
+</div>
+    <div id="tab-content-data-download" class="tab-content" style="display:none;">
+  <h3>Data Download</h3>
+  <form id="dataDownloadForm" style="margin-bottom:1em;">
+    <label for="dataDownloadReporter">Reporter Country:</label>
+    <select id="dataDownloadReporter" name="dataDownloadReporter">
+      <option value="">All</option>
+    </select>
+    <label for="dataDownloadPartner">Partner Country:</label>
+    <select id="dataDownloadPartner" name="dataDownloadPartner">
+      <option value="">All</option>
+    </select>
+    <label for="dataDownloadYear">Year:</label>
+    <input type="number" id="dataDownloadYear" name="dataDownloadYear" min="2000" max="2100" style="width:90px;">
+    <label for="dataDownloadCommodity">Commodity Code (HS or TOTAL):</label>
+    <input type="text" id="dataDownloadCommodity" name="dataDownloadCommodity" style="width:110px;">
+    <label for="dataDownloadFlow">Flow:</label>
+    <select id="dataDownloadFlow" name="dataDownloadFlow">
+      <option value="">All</option>
+      <option value="X">Export</option>
+      <option value="M">Import</option>
+    </select>
+    <button type="submit">Download CSV</button>
+  </form>
+  <div id="dataDownloadStatus"></div>
+</div>
+<div id="tab-content-prediction" class="tab-content" style="display:none;">
+  <h3>Trade Flow Prediction (ML)</h3>
+  <form id="predictionForm" style="margin-bottom:1em;">
+    <label for="predictionReporter">Reporter Country:</label>
+    <select id="predictionReporter" name="predictionReporter"></select>
+    <label for="predictionPartner">Partner Country:</label>
+    <select id="predictionPartner" name="predictionPartner"></select>
+    <label for="predictionYear">Year to Predict:</label>
+    <input type="number" id="predictionYear" name="predictionYear" value="2023" min="2000" max="2100" style="width:90px;">
+    <label for="predictionCommodity">Commodity Code (HS or TOTAL):</label>
+    <input type="text" id="predictionCommodity" name="predictionCommodity" value="TOTAL" style="width:110px;">
+    <label for="predictionModel">Model:</label>
+    <select id="predictionModel" name="predictionModel">
+      <option value="linear">Linear Regression</option>
+      <option value="xgboost">XGBoost</option>
+      <option value="lstm">LSTM</option>
+    </select>
+    <button type="submit">Predict</button>
+  </form>
+  <button id="predictionDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
+  <div id="predictionResults"></div>
+  <div id="predictionChart" style="margin-top:2em;"></div>
+</div>
+</body>
+</html>

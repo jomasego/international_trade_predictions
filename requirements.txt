@@ -1,0 +1,7 @@
+pandas
+requests
+comtradeapicall
+scikit-learn
+xgboost
+tensorflow
+flask
