@@ -22,55 +22,86 @@ jobs:
           python-version: '3.9'
           
       - name: Install Hugging Face Hub
-        run: pip install huggingface_hub requests
+        run: pip install huggingface_hub
           
-      - name: Create and Deploy to Hugging Face Space
+      - name: Deploy to Hugging Face Space using huggingface_hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Configure git
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
+          # Create a directory for the Space contents
+          mkdir -p space_contents
           
-          # We don't need to create the Space - it already exists
-          # Just clone the repo and update files
-          echo "Using existing Space: jomasego/$SPACE_NAME"
+          # Copy all necessary files to this directory
+          cp spaces_app.py space_contents/app.py
+          cp requirements-spaces.txt space_contents/requirements.txt
+          cp Dockerfile space_contents/Dockerfile
+          cp -r llm_assistant.py space_contents/
+          cp README.md space_contents/README.md || echo "No README to copy"
           
-          # Clone the Space repository with proper error handling
-          if git clone https://$HF_TOKEN@huggingface.co/spaces/jomasego/$SPACE_NAME space-repo 2>/dev/null; then
-            echo "Successfully cloned the Space repository"
-          else
-            echo "Failed to clone repository, but continuing with space creation via API"
-            python -c "from huggingface_hub import HfApi; api = HfApi(token='$HF_TOKEN'); api.create_repo(repo_id='jomasego/$SPACE_NAME', repo_type='space', space_sdk='docker', private=False)"
-            # Try cloning again after creation
-            sleep 5
-            git clone https://$HF_TOKEN@huggingface.co/spaces/jomasego/$SPACE_NAME space-repo
-          fi
+          # Create necessary subdirectories
+          mkdir -p space_contents/static space_contents/templates
           
-          # Prepare files
-          cp spaces_app.py space-repo/app.py
-          cp requirements-spaces.txt space-repo/requirements.txt
-          cp Dockerfile space-repo/Dockerfile
-          cp -r llm_assistant.py space-repo/
-          cp README.md space-repo/README.md || echo "No README to copy"
-          
-          # Create necessary directories
-          mkdir -p space-repo/static space-repo/templates
-          
-          # Copy directories if they exist
+          # Copy subdirectories if they exist
           if [ -d "static" ]; then
-            cp -r static/* space-repo/static/ || echo "No static files to copy"
+            cp -r static/* space_contents/static/ || echo "No static files to copy"
           fi
           
           if [ -d "templates" ]; then
-            cp -r templates/* space-repo/templates/ || echo "No template files to copy"
+            cp -r templates/* space_contents/templates/ || echo "No template files to copy"
           fi
           
           # Add API token to environment
-          echo "HUGGINGFACE_API_TOKEN=$HF_TOKEN" > space-repo/.env
+          echo "HUGGINGFACE_API_TOKEN=$HF_TOKEN" > space_contents/.env
           
-          # Push changes
-          cd space-repo
-          git add .
-          git commit -m "Update from GitHub Actions: $GITHUB_SHA" || echo "No changes to commit"
-          git push origin main
+          # Create or update the Space using huggingface_hub API
+          python - <<EOF
+          from huggingface_hub import HfApi, create_repo
+          import os
+          from pathlib import Path
+          import time
+          
+          # Get environment variables
+          token = os.environ.get('HF_TOKEN')
+          space_name = os.environ.get('SPACE_NAME')
+          repo_id = f"jomasego/{space_name}"
+          
+          # Initialize API
+          api = HfApi(token=token)
+          
+          # Check if space exists
+          try:
+              space_info = api.space_info(repo_id=repo_id)
+              print(f"Space exists: {repo_id}")
+          except Exception as e:
+              print(f"Creating new Space: {repo_id}")
+              try:
+                  create_repo(
+                      token=token,
+                      repo_id=repo_id,
+                      repo_type="space",
+                      space_sdk="docker",
+                      private=False
+                  )
+                  print(f"Successfully created Space: {repo_id}")
+                  # Wait for Space creation to complete
+                  time.sleep(5)
+              except Exception as create_error:
+                  print(f"Note: Space creation error: {create_error}")
+                  # Continue anyway - space might already exist
+          
+          # Upload all the files from the prepared directory
+          path = Path("space_contents")
+          files_to_upload = list(path.glob("**/*"))
+          for file_path in files_to_upload:
+              if file_path.is_file():
+                  print(f"Uploading {file_path}")
+                  relative_path = file_path.relative_to(path)
+                  api.upload_file(
+                      path_or_fileobj=str(file_path),
+                      path_in_repo=str(relative_path),
+                      repo_id=repo_id,
+                      repo_type="space"
+                  )
+          
+          print("Deployment complete!")
+          EOF
