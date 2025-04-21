@@ -81,6 +81,15 @@ class TradeAssistant:
         Returns:
             Dict containing the LLM response
         """
+        # Check if API token is available
+        if not self.api_token:
+            print("Error: No Hugging Face API token found in environment variables or initialization")
+            return {
+                "success": False,
+                "response": "I'm unable to connect to my language model due to missing API credentials. Please check the HUGGINGFACE_API_TOKEN environment variable.",
+                "message": "Missing API token"
+            }
+            
         if chat_history is None:
             chat_history = []
             
@@ -100,87 +109,120 @@ class TradeAssistant:
         # Add the current question
         messages.append({"role": "user", "content": user_question})
         
-        try:
-            # Send the request to the HuggingFace API
-            payload = {
-                "inputs": messages,
-                "parameters": {
-                    "max_new_tokens": 500,
-                    "temperature": 0.7,
-                    "top_p": 0.9,
-                    "do_sample": True
-                }
+        # Prepare payload for the API request
+        payload = {
+            "inputs": messages,
+            "parameters": {
+                "max_new_tokens": 500,
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "do_sample": True
             }
-            
-            # Implement retry mechanism for model loading
-            max_retries = 2
-            retry_delay = 1  # seconds
-            
-            for attempt in range(max_retries):
+        }
+        
+        # Implement retry mechanism
+        max_retries = 3
+        retry_delay = 2  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                print(f"Attempt {attempt+1} of {max_retries} to query LLM at {self.api_url}")
+                print(f"API token begins with: {self.api_token[:5]}...")
+                
+                # Make the API request
                 response = requests.post(
                     self.api_url,
                     headers=self.headers,
                     json=payload,
-                    timeout=10  # Add timeout to prevent hanging requests
+                    timeout=15  # Extended timeout for Spaces environment
                 )
                 
-                # If request succeeded, process the response
+                # Process successful responses
                 if response.status_code == 200:
                     try:
                         result = response.json()
                         if isinstance(result, list) and len(result) > 0:
-                            # Extract the assistant's response
                             generated_text = result[0].get("generated_text", "")
-                            
-                            # Format for return
                             return {
                                 "success": True,
                                 "response": generated_text,
                                 "message": "Successfully generated response"
                             }
                         else:
+                            print(f"Unexpected response format: {result}")
                             return {
                                 "success": False,
                                 "response": self.get_fallback_response(user_question),
-                                "message": f"Unexpected API response format: {result}"
+                                "message": "Invalid response format"
                             }
-                    except (json.JSONDecodeError, KeyError, IndexError) as e:
-                        print(f"Error processing response: {str(e)}, Response: {response.text}")
+                    except Exception as e:
+                        print(f"Error processing response: {str(e)}")
                         return {
-                            "success": True,  # Return as success but with fallback response
+                            "success": False,
                             "response": self.get_fallback_response(user_question),
                             "message": f"Error processing response: {str(e)}"
                         }
-                
-                # If model is loading (status code 503), wait and retry
+                            
+                # Handle model still loading
                 elif response.status_code == 503:
-                    print(f"Model is loading or temporarily unavailable. Attempt {attempt+1}/{max_retries}.")
-                    if attempt < max_retries - 1:  # Don't wait after the last attempt
+                    print(f"Model is loading. Attempt {attempt+1}/{max_retries}")
+                    if attempt < max_retries - 1:
                         import time
                         time.sleep(retry_delay)
                     else:
-                        # If we've exhausted all retries, use fallback
                         return {
-                            "success": True,  # Mark as successful but using fallback
-                            "response": self.get_fallback_response(user_question),
-                            "message": f"Model unavailable (status: {response.status_code}). Using fallback response."
+                            "success": False,
+                            "response": "The AI model is currently initializing. Please try again in a moment.",
+                            "message": "Model loading"
                         }
+                            
+                # Handle other error status codes
                 else:
-                    # Other errors - try fallback immediately
-                    error_message = f"API request failed with status code {response.status_code}"
-                    try:
-                        error_detail = response.json()
-                        error_message += f": {json.dumps(error_detail)}"
-                    except:
-                        error_message += f": {response.text}"
-                    
-                    print(error_message)  # Log the error for debugging
-                    
-                    # Return fallback response instead of error
+                    print(f"Request failed with status code {response.status_code}: {response.text}")
+                    if attempt < max_retries - 1:
+                        import time
+                        time.sleep(retry_delay)
+                    else:
+                        return {
+                            "success": False,
+                            "response": "I'm having trouble connecting to my knowledge base. Please try again later.",
+                            "message": f"API error: {response.status_code}"
+                        }
+                        
+            except requests.exceptions.Timeout:
+                print(f"Request timed out. Attempt {attempt+1}/{max_retries}")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(retry_delay)
+                else:
                     return {
-                        "success": True,  # Mark as successful but using fallback
-                        "response": self.get_fallback_response(user_question),
-                        "message": error_message
+                        "success": False,
+                        "response": "The request to the AI service timed out. Please try again later.",
+                        "message": "Request timeout"
+                    }
+                    
+            except requests.exceptions.ConnectionError:
+                print(f"Connection error. Attempt {attempt+1}/{max_retries}")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(retry_delay)
+                else:
+                    return {
+                        "success": False,
+                        "response": "I'm having trouble connecting to the server. This might be due to network restrictions in the deployment environment.",
+                        "message": "Connection error"
+                    }
+                    
+            except Exception as e:
+                print(f"Unexpected error: {str(e)}")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(retry_delay)
+                else:
+                    return {
+                        "success": False,
+                        "response": "An unexpected error occurred while processing your request.",
+                        "message": f"Unexpected error: {str(e)}"
                     }
                 
         except Exception as e:
