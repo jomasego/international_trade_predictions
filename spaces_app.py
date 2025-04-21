@@ -9,13 +9,63 @@ import pandas as pd
 import numpy as np
 import time
 from dotenv import load_dotenv
-from llm_assistant import TradeAssistant
+import sys
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file if it exists
 load_dotenv()
 
+# Log environment for debugging
+logger.info(f"Environment variables: HUGGINGFACE_API_TOKEN exists: {'HUGGINGFACE_API_TOKEN' in os.environ}")
+logger.info(f"Python version: {sys.version}")
+logger.info(f"Working directory: {os.getcwd()}")
+logger.info(f"Directory contents: {os.listdir('.')}")
+
 # Initialize Flask app
 app = Flask(__name__)
+
+# Import the llm_assistant module
+try:
+    from llm_assistant import TradeAssistant
+    logger.info("Successfully imported TradeAssistant")
+except Exception as e:
+    logger.error(f"Error importing TradeAssistant: {str(e)}")
+    
+    # Create a fallback class if import fails
+    class TradeAssistant:
+        def __init__(self, api_token=None):
+            self.api_token = api_token
+            
+        def query(self, user_question, chat_history=None, include_app_context=True):
+            return {
+                "success": False,
+                "response": "The AI assistant is temporarily unavailable. Please check the application logs for details.",
+                "message": "Import error"
+            }
+            
+        def format_chat_history(self, chat_history_raw):
+            return []
+            
+        def enhance_query_with_context(self, query):
+            return query
+            
+        def explain_hs_code(self, code):
+            return {
+                "success": False,
+                "response": "HS code explanation is temporarily unavailable.",
+                "message": "Import error"
+            }
+            
+        def get_trade_recommendation(self, country=None, product=None, year=None):
+            return {
+                "success": False,
+                "response": "Trade recommendations are temporarily unavailable.",
+                "message": "Import error"
+            }
 
 # Initialize the AI Assistant
 trade_assistant = TradeAssistant(api_token=os.environ.get("HUGGINGFACE_API_TOKEN"))
