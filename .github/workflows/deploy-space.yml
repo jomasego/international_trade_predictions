@@ -22,56 +22,76 @@ jobs:
           python-version: '3.9'
           
       - name: Install Hugging Face Hub
-        run: pip install huggingface_hub
+        run: pip install huggingface_hub requests
           
-      - name: Create Hugging Face Space
+      - name: Create and Deploy to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
+          # Configure git
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+          
+          # Create or update Space using API
           python - <<EOF
-          from huggingface_hub import HfApi
+          from huggingface_hub import HfApi, create_repo
           import os
+          import time
           
           # Get environment variables
           token = os.environ.get('HF_TOKEN')
           space_name = os.environ.get('SPACE_NAME')
+          space_id = f"jomasego/{space_name}"
           
           # Initialize API
           api = HfApi(token=token)
           
           # Check if space exists
           try:
-              space_info = api.space_info(repo_id=f"jomasego/{space_name}")
+              space_info = api.space_info(repo_id=space_id)
               print(f"Space already exists: {space_info.name}")
           except Exception as e:
               print(f"Space doesn't exist, creating it: {str(e)}")
               # Create the space
-              api.create_repo(
-                  repo_id=space_name,
+              create_repo(
+                  token=token,
+                  repo_id=space_id,
                   repo_type="space",
                   space_sdk="docker",
                   private=False
               )
-              print(f"Created space: jomasego/{space_name}")
+              print(f"Created space: {space_id}")
+              # Give a moment for Space creation to complete
+              time.sleep(5)
           EOF
           
-      - name: Prepare Files for Space
-        run: |
-          mkdir -p deploy
-          cp spaces_app.py deploy/app.py
-          cp requirements-spaces.txt deploy/requirements.txt
-          cp Dockerfile deploy/
-          cp README-SPACES.md deploy/README.md
-          cp llm_assistant.py deploy/
-          mkdir -p deploy/static deploy/templates
-          cp -r static/* deploy/static/ || echo "No static files"
-          cp -r templates/* deploy/templates/ || echo "No template files"
-          echo "HUGGINGFACE_API_TOKEN=${{ secrets.HF_TOKEN }}" > deploy/.env
+          # Clone the Space repository
+          git clone https://$HF_TOKEN@huggingface.co/spaces/jomasego/$SPACE_NAME space-repo
           
-      - name: Push to Hugging Face Space
-        uses: huggingface/huggingface-push-to-space@main
-        with:
-          path_to_repo: "deploy"
-          space_id: "jomasego/${{ env.SPACE_NAME }}"
-          api_token: ${{ secrets.HF_TOKEN }}
-          include_lfs: true
+          # Prepare files
+          cp spaces_app.py space-repo/app.py
+          cp requirements-spaces.txt space-repo/requirements.txt
+          cp Dockerfile space-repo/Dockerfile
+          cp -r llm_assistant.py space-repo/
+          cp README.md space-repo/README.md || echo "No README to copy"
+          
+          # Create necessary directories
+          mkdir -p space-repo/static space-repo/templates
+          
+          # Copy directories if they exist
+          if [ -d "static" ]; then
+            cp -r static/* space-repo/static/ || echo "No static files to copy"
+          fi
+          
+          if [ -d "templates" ]; then
+            cp -r templates/* space-repo/templates/ || echo "No template files to copy"
+          fi
+          
+          # Add API token to environment
+          echo "HUGGINGFACE_API_TOKEN=$HF_TOKEN" > space-repo/.env
+          
+          # Push changes
+          cd space-repo
+          git add .
+          git commit -m "Update from GitHub Actions: $GITHUB_SHA" || echo "No changes to commit"
+          git push origin main
