@@ -50,8 +50,7 @@ jobs:
             cp -r templates/* space_contents/templates/ || echo "No template files to copy"
           fi
           
-          # Add API token to environment
-          echo "HUGGINGFACE_API_TOKEN=$HF_TOKEN" > space_contents/.env
+          # Don't include secrets in files - we'll set them as Space secrets via the API later
           
           # Create or update the Space using huggingface_hub API
           python - <<EOF
@@ -102,6 +101,21 @@ jobs:
                       repo_id=repo_id,
                       repo_type="space"
                   )
+          
+          # Set the HF token as a secret in the Space
+          try:
+              print(f"Setting HUGGINGFACE_API_TOKEN secret for {repo_id}")
+              api.add_space_secret(repo_id=repo_id, key="HUGGINGFACE_API_TOKEN", value=token)
+              print("Secret set successfully!")
+          except Exception as e:
+              print(f"Note: Error setting secret: {e}")
+              # This might fail if the secret is already set
+          
+          # Setting Space variables for better visibility
+          try:
+              api.add_space_variable(repo_id=repo_id, key="DEPLOYMENT_TIMESTAMP", value=str(time.time()))
+          except Exception as e:
+              print(f"Could not set variable: {e}")
           
           print("Deployment complete!")
           EOF
