@@ -124,107 +124,112 @@ class TradeAssistant:
         max_retries = 3
         retry_delay = 2  # seconds
         
-        for attempt in range(max_retries):
-            try:
-                print(f"Attempt {attempt+1} of {max_retries} to query LLM at {self.api_url}")
-                print(f"API token begins with: {self.api_token[:5]}...")
-                
-                # Make the API request
-                response = requests.post(
-                    self.api_url,
-                    headers=self.headers,
-                    json=payload,
-                    timeout=15  # Extended timeout for Spaces environment
-                )
-                
-                # Process successful responses
-                if response.status_code == 200:
-                    try:
-                        result = response.json()
-                        if isinstance(result, list) and len(result) > 0:
-                            generated_text = result[0].get("generated_text", "")
-                            return {
-                                "success": True,
-                                "response": generated_text,
-                                "message": "Successfully generated response"
-                            }
-                        else:
-                            print(f"Unexpected response format: {result}")
+        try:
+            for attempt in range(max_retries):
+                try:
+                    print(f"Attempt {attempt+1} of {max_retries} to query LLM at {self.api_url}")
+                    print(f"API token begins with: {self.api_token[:5]}...")
+                    
+                    # Make the API request
+                    response = requests.post(
+                        self.api_url,
+                        headers=self.headers,
+                        json=payload,
+                        timeout=15  # Extended timeout for Spaces environment
+                    )
+                    
+                    # Process successful responses
+                    if response.status_code == 200:
+                        try:
+                            result = response.json()
+                            if isinstance(result, list) and len(result) > 0:
+                                generated_text = result[0].get("generated_text", "")
+                                return {
+                                    "success": True,
+                                    "response": generated_text,
+                                    "message": "Successfully generated response"
+                                }
+                            else:
+                                print(f"Unexpected response format: {result}")
+                                return {
+                                    "success": False,
+                                    "response": self.get_fallback_response(user_question),
+                                    "message": "Invalid response format"
+                                }
+                        except Exception as e:
+                            print(f"Error processing response: {str(e)}")
                             return {
                                 "success": False,
                                 "response": self.get_fallback_response(user_question),
-                                "message": "Invalid response format"
+                                "message": f"Error processing response: {str(e)}"
                             }
-                    except Exception as e:
-                        print(f"Error processing response: {str(e)}")
-                        return {
-                            "success": False,
-                            "response": self.get_fallback_response(user_question),
-                            "message": f"Error processing response: {str(e)}"
-                        }
-                # Handle model still loading
-                elif response.status_code == 503:
-                    print(f"Model is loading. Attempt {attempt+1}/{max_retries}")
+                    # Handle model still loading
+                    elif response.status_code == 503:
+                        print(f"Model is loading. Attempt {attempt+1}/{max_retries}")
+                        if attempt < max_retries - 1:
+                            import time
+                            time.sleep(retry_delay)
+                        else:
+                            return {
+                                "success": False,
+                                "response": "The AI model is currently initializing. Please try again in a moment.",
+                                "message": "Model loading"
+                            }
+                    # Handle other error status codes
+                    else:
+                        print(f"Request failed with status code {response.status_code}: {response.text}")
+                        if attempt < max_retries - 1:
+                            import time
+                            time.sleep(retry_delay)
+                        else:
+                            return {
+                                "success": False,
+                                "response": "I'm having trouble connecting to my knowledge base. Please try again later.",
+                                "message": f"API error: {response.status_code}"
+                            }
+                except requests.exceptions.Timeout:
+                    print(f"Request timed out. Attempt {attempt+1}/{max_retries}")
                     if attempt < max_retries - 1:
                         import time
                         time.sleep(retry_delay)
                     else:
                         return {
                             "success": False,
-                            "response": "The AI model is currently initializing. Please try again in a moment.",
-                            "message": "Model loading"
+                            "response": "The request to the AI service timed out. Please try again later.",
+                            "message": "Request timeout"
                         }
-                # Handle other error status codes
-                else:
-                    print(f"Request failed with status code {response.status_code}: {response.text}")
+                except requests.exceptions.ConnectionError:
+                    print(f"Connection error. Attempt {attempt+1}/{max_retries}")
                     if attempt < max_retries - 1:
                         import time
                         time.sleep(retry_delay)
                     else:
                         return {
                             "success": False,
-                            "response": "I'm having trouble connecting to my knowledge base. Please try again later.",
-                            "message": f"API error: {response.status_code}"
+                            "response": "I'm having trouble connecting to the server. This might be due to network restrictions in the deployment environment.",
+                            "message": "Connection error"
                         }
-                        
-            except requests.exceptions.Timeout:
-                print(f"Request timed out. Attempt {attempt+1}/{max_retries}")
-                if attempt < max_retries - 1:
-                    import time
-                    time.sleep(retry_delay)
-                else:
-                    return {
-                        "success": False,
-                        "response": "The request to the AI service timed out. Please try again later.",
-                        "message": "Request timeout"
-                    }
-            except requests.exceptions.ConnectionError:
-                print(f"Connection error. Attempt {attempt+1}/{max_retries}")
-                if attempt < max_retries - 1:
-                    import time
-                    time.sleep(retry_delay)
-                else:
-                    return {
-                        "success": False,
-                        "response": "I'm having trouble connecting to the server. This might be due to network restrictions in the deployment environment.",
-                        "message": "Connection error"
-                    }
-            except Exception as e:
-                print(f"Unexpected error: {str(e)}")
-                if attempt < max_retries - 1:
-                    import time
-                    time.sleep(retry_delay)
-                else:
-                    return {
-                        "success": False,
-                        "response": "An unexpected error occurred while processing your request.",
-                        "message": f"Unexpected error: {str(e)}"
-                    }
-                
+                except Exception as e:
+                    print(f"Unexpected error: {str(e)}")
+                    if attempt < max_retries - 1:
+                        import time
+                        time.sleep(retry_delay)
+                    else:
+                        return {
+                            "success": False,
+                            "response": "An unexpected error occurred while processing your request.",
+                            "message": f"Unexpected error: {str(e)}"
+                        }
+            # If all retries failed and we're still here
+            return {
+                "success": False,
+                "response": "I was unable to get a response after multiple attempts. Please try again later.",
+                "message": "All retries failed"
+            }
         except Exception as e:
             print(f"Exception during API request: {str(e)}")
             return {
-                "success": True,  # Return as success but with fallback
+                "success": False,  
                 "response": self.get_fallback_response(user_question),
                 "message": f"Error querying LLM: {str(e)}"
             }
