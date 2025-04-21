@@ -8,27 +8,70 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      SPACE_NAME: ${{ secrets.SPACE_NAME }}
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           lfs: true
-      
-      # Use the official Hugging Face action to deploy to Spaces
-      - name: Deploy to Hugging Face Spaces
-        uses: huggingface/sync-to-spaces@latest
+          
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          source: .
-          # Replace spaces_app.py with app.py
-          transform: |
-            if [ -f "spaces_app.py" ]; then
-              cp spaces_app.py app.py
-            fi
-            if [ -f "requirements-spaces.txt" ]; then
-              cp requirements-spaces.txt requirements.txt
-            fi
-            echo "HUGGINGFACE_API_TOKEN=${{ secrets.HF_TOKEN }}" > .env
-          space_id: "jomasego/${{ secrets.SPACE_NAME }}"
-          token: ${{ secrets.HF_TOKEN }}
-          sdk: docker
-          auto_rebase: true
+          python-version: '3.9'
+          
+      - name: Install Hugging Face Hub
+        run: pip install huggingface_hub
+          
+      - name: Create Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<EOF
+          from huggingface_hub import HfApi
+          import os
+          
+          # Get environment variables
+          token = os.environ.get('HF_TOKEN')
+          space_name = os.environ.get('SPACE_NAME')
+          
+          # Initialize API
+          api = HfApi(token=token)
+          
+          # Check if space exists
+          try:
+              space_info = api.space_info(repo_id=f"jomasego/{space_name}")
+              print(f"Space already exists: {space_info.name}")
+          except Exception as e:
+              print(f"Space doesn't exist, creating it: {str(e)}")
+              # Create the space
+              api.create_repo(
+                  repo_id=space_name,
+                  repo_type="space",
+                  space_sdk="docker",
+                  private=False
+              )
+              print(f"Created space: jomasego/{space_name}")
+          EOF
+          
+      - name: Prepare Files for Space
+        run: |
+          mkdir -p deploy
+          cp spaces_app.py deploy/app.py
+          cp requirements-spaces.txt deploy/requirements.txt
+          cp Dockerfile deploy/
+          cp README-SPACES.md deploy/README.md
+          cp llm_assistant.py deploy/
+          mkdir -p deploy/static deploy/templates
+          cp -r static/* deploy/static/ || echo "No static files"
+          cp -r templates/* deploy/templates/ || echo "No template files"
+          echo "HUGGINGFACE_API_TOKEN=${{ secrets.HF_TOKEN }}" > deploy/.env
+          
+      - name: Push to Hugging Face Space
+        uses: huggingface/huggingface-push-to-space@main
+        with:
+          path_to_repo: "deploy"
+          space_id: "jomasego/${{ env.SPACE_NAME }}"
+          api_token: ${{ secrets.HF_TOKEN }}
+          include_lfs: true
