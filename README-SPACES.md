@@ -1,3 +1,14 @@
+---
+title: Trade Flow Predictor
+emoji: 🌐
+colorFrom: blue
+colorTo: green
+sdk: docker
+sdk_version: "1.0"
+app_file: app.py
+pinned: false
+---
+
 # International Trade Flow Predictor with AI Assistant
 
 Welcome to the **International Trade Flow Predictor**! 🎉
