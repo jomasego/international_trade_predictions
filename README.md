@@ -99,6 +99,23 @@ This option deploys just the AI Assistant component as a separate application on
 
    d. **Your space will automatically deploy** and be accessible through the provided URL
 
+### Option 3: Automatic GitHub Actions Deployment
+
+This project is configured to automatically deploy to Hugging Face Spaces using GitHub Actions:
+
+1. **One-time setup:**
+   - Add required secrets to your GitHub repository:
+     - `HF_TOKEN`: Your Hugging Face API token
+     - `SPACE_NAME`: Your desired Space name
+     - `HUGGINGFACE_API_TOKEN`: Same as your HF_TOKEN
+
+2. **Automatic deployment:**
+   - Every push to the `main` branch triggers a deployment
+   - Your app will be available at: `https://huggingface.co/spaces/jomasego/[SPACE_NAME]`
+
+3. **Manual triggering:**
+   - You can also manually trigger deployment from the GitHub Actions tab
+
 ### Using the AI Assistant
 
 Regardless of which deployment option you choose:
