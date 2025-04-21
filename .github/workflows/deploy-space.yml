@@ -14,67 +14,21 @@ jobs:
           fetch-depth: 0
           lfs: true
       
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      # Use the official Hugging Face action to deploy to Spaces
+      - name: Deploy to Hugging Face Spaces
+        uses: huggingface/sync-to-spaces@latest
         with:
-          python-version: '3.9'
-      
-      - name: Install Hugging Face Hub CLI
-        run: pip install huggingface_hub
-      
-      - name: Login to Hugging Face
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          # Set up Hugging Face credentials
-          mkdir -p ~/.huggingface
-          echo -n "$HF_TOKEN" > ~/.huggingface/token
-      
-      - name: Push to Hugging Face Space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          SPACE_NAME: ${{ secrets.SPACE_NAME }}
-          USERNAME: jomasego
-        run: |
-          # Configure git
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions"
-          
-          # Check if space exists
-          SPACE_EXISTS=$(python -c "from huggingface_hub import HfApi; api = HfApi(); print(any(space.id == '$USERNAME/$SPACE_NAME' for space in api.list_spaces(author='$USERNAME')))")
-          
-          if [ "$SPACE_EXISTS" = "True" ]; then
-            echo "Space already exists, cloning it..."
-            git clone https://"$HF_TOKEN"@huggingface.co/spaces/$USERNAME/$SPACE_NAME hf_space
-          else
-            echo "Space does not exist, creating it..."
-            # Create new Space with Docker SDK
-            python -c "from huggingface_hub import HfApi; api = HfApi(); api.create_repo(repo_id='$SPACE_NAME', repo_type='space', space_sdk='docker', private=False)"
-            git clone https://"$HF_TOKEN"@huggingface.co/spaces/$USERNAME/$SPACE_NAME hf_space
-          fi
-          
-          # Copy files to the Space repository
-          cp -r spaces_app.py hf_space/app.py
-          cp -r requirements-spaces.txt hf_space/requirements.txt
-          cp -r Dockerfile hf_space/Dockerfile
-          cp -r README-SPACES.md hf_space/README.md
-          
-          # Make sure directories exist before copying
-          mkdir -p hf_space/static
-          mkdir -p hf_space/templates
-          
-          # Copy directories
-          cp -r static/* hf_space/static/ || echo "No static files to copy"
-          cp -r templates/* hf_space/templates/ || echo "No template files to copy"
-          
-          # Copy Python files
-          cp -r llm_assistant.py hf_space/
-          
-          # Add HUGGINGFACE_API_TOKEN to .env file
-          echo "HUGGINGFACE_API_TOKEN=$HF_TOKEN" > hf_space/.env
-          
-          # Push to Hugging Face Space
-          cd hf_space
-          git add .
-          git commit -m "Update from GitHub Actions: $GITHUB_SHA" || echo "No changes to commit"
-          git push
+          source: .
+          # Replace spaces_app.py with app.py
+          transform: |
+            if [ -f "spaces_app.py" ]; then
+              cp spaces_app.py app.py
+            fi
+            if [ -f "requirements-spaces.txt" ]; then
+              cp requirements-spaces.txt requirements.txt
+            fi
+            echo "HUGGINGFACE_API_TOKEN=${{ secrets.HF_TOKEN }}" > .env
+          space_id: "jomasego/${{ secrets.SPACE_NAME }}"
+          token: ${{ secrets.HF_TOKEN }}
+          sdk: docker
+          auto_rebase: true
