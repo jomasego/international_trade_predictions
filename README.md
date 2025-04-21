@@ -1,5 +1,7 @@
 # 🌍 International Trade Flow Predictor with AI Assistant 🚢📈🤖
 
+[![Deploy to Hugging Face Spaces](https://github.com/jomasego/international_trade_predictions/actions/workflows/deploy-space.yml/badge.svg)](https://github.com/jomasego/international_trade_predictions/actions/workflows/deploy-space.yml)
+
 Welcome to the **International Trade Flow Predictor**! 🎉
 
 A fun, interactive web app to explore, analyze, and predict international trade flows using real data and machine learning. Now with AI-powered trade assistance! Built with Flask, vanilla JS, and a dash of data science magic. 🧙‍♂️✨
