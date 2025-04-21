@@ -1,0 +1,56 @@
+name: Deploy to Hugging Face Spaces
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+      
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SPACE_NAME: ${{ secrets.SPACE_NAME }}
+          USERNAME: jomasego
+        run: |
+          # Configure git
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          
+          # Set up Hugging Face CLI credentials
+          mkdir -p ~/.huggingface
+          echo -n "${HF_TOKEN}" > ~/.huggingface/token
+          
+          # Clone the Space repository (will create if it doesn't exist)
+          git clone https://huggingface.co/spaces/${USERNAME}/${SPACE_NAME} hf_space || (
+            echo "Space does not exist, creating it..."
+            # Install huggingface_hub CLI if not exists
+            pip install huggingface_hub
+            # Create new Space with Docker SDK
+            huggingface-cli repo create ${SPACE_NAME} --type space --organization ${USERNAME} --sdk docker
+            git clone https://huggingface.co/spaces/${USERNAME}/${SPACE_NAME} hf_space
+          )
+          
+          # Copy files to the Space repository
+          cp -r spaces_app.py hf_space/app.py
+          cp -r requirements-spaces.txt hf_space/requirements.txt
+          cp -r Dockerfile hf_space/Dockerfile
+          cp -r README-SPACES.md hf_space/README.md
+          cp -r static hf_space/static
+          cp -r templates hf_space/templates
+          cp -r llm_assistant.py hf_space/llm_assistant.py
+          # Copy other necessary Python files
+          cp -r *.py hf_space/ 2>/dev/null || :
+          
+          # Push to Hugging Face Space
+          cd hf_space
+          git add .
+          git commit -m "Update from GitHub Actions: ${GITHUB_SHA}" || echo "No changes to commit"
+          git push https://${HF_TOKEN}@huggingface.co/spaces/${USERNAME}/${SPACE_NAME} main
