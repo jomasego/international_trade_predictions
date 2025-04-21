@@ -36,7 +36,14 @@ jobs:
           cp requirements-spaces.txt space_contents/requirements.txt
           cp Dockerfile space_contents/Dockerfile
           cp -r llm_assistant.py space_contents/
-          cp README.md space_contents/README.md || echo "No README to copy"
+          
+          # Important: Copy README-SPACES.md as README.md to ensure correct Space configuration
+          if [ -f "README-SPACES.md" ]; then
+            cp README-SPACES.md space_contents/README.md
+            echo "Copied README-SPACES.md as README.md"
+          else
+            cp README.md space_contents/README.md || echo "No README to copy"
+          fi
           
           # Create necessary subdirectories
           mkdir -p space_contents/static space_contents/templates
