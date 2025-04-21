@@ -31,9 +31,16 @@ jobs:
           # Create a directory for the Space contents
           mkdir -p space_contents
           
-          # Copy all necessary files to this directory
+          # Ensure requirements file exists and copy all necessary files
+          echo "Checking requirements-spaces.txt"
+          ls -la requirements-spaces.txt
+          cat requirements-spaces.txt
+          echo "Copy files with explicit error checking"
           cp spaces_app.py space_contents/app.py
-          cp requirements-spaces.txt space_contents/requirements.txt
+          cp requirements-spaces.txt space_contents/requirements.txt || {
+            echo "Failed to copy requirements-spaces.txt, creating a new one"
+            echo "flask==2.0.1\nrequests==2.28.1\npandas==1.3.5\nnumpy==1.21.6\nscikit-learn==1.0.2\nxgboost==1.5.2\nmatplotlib==3.5.3\ntensorflow==2.8.0\npython-dotenv==0.19.0\ngunicorn==20.1.0\nhuggingface_hub==0.19.4\ntqdm==4.66.1\nprotobuf==3.20.0" > space_contents/requirements.txt
+          }
           cp Dockerfile space_contents/Dockerfile
           cp -r llm_assistant.py space_contents/
           
