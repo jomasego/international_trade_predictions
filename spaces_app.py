@@ -70,20 +70,119 @@ except Exception as e:
 # Initialize the AI Assistant
 trade_assistant = TradeAssistant(api_token=os.environ.get("HUGGINGFACE_API_TOKEN"))
 
-# Create placeholders for app functions to avoid circular imports
-# In a production setting, these would be imported from a separate utility module
+# Import comtradeapicall module for data access
+try:
+    import comtradeapicall
+    logger.info("Successfully imported comtradeapicall module")
+    data_api_available = True
+except Exception as e:
+    logger.error(f"Error importing comtradeapicall module: {str(e)}")
+    data_api_available = False
+
+# Set up API access functions with proper error handling
 def get_countries():
-    return ["USA", "China", "Germany", "Japan", "France"]
+    """Get list of countries for the UI"""
+    try:
+        if data_api_available:
+            return comtradeapicall.get_country_list()
+        else:
+            # Fallback data if API module is not available
+            return [
+                {"code": "842", "name": "United States"},
+                {"code": "156", "name": "China"},
+                {"code": "276", "name": "Germany"},
+                {"code": "392", "name": "Japan"},
+                {"code": "250", "name": "France"}
+            ]
+    except Exception as e:
+        logger.error(f"Error getting country list: {str(e)}")
+        return [{"code": "842", "name": "United States"}]  # Minimal fallback
 
 def get_product_codes():
-    return [{"code": "01", "description": "Live animals"}, 
-            {"code": "85", "description": "Electrical machinery and equipment"}]
+    """Get list of product codes for the UI"""
+    try:
+        if data_api_available:
+            return comtradeapicall.get_commodity_list()
+        else:
+            # Fallback data if API module is not available
+            return [
+                {"code": "TOTAL", "description": "All Commodities"},
+                {"code": "01", "description": "Live animals"}, 
+                {"code": "85", "description": "Electrical machinery and equipment"}
+            ]
+    except Exception as e:
+        logger.error(f"Error getting product codes: {str(e)}")
+        return [{"code": "TOTAL", "description": "All Commodities"}]  # Minimal fallback
 
 def query_comtrade(params):
-    return {"data": [], "status": "placeholder"}
+    """Query the COMTRADE API with the given parameters"""
+    try:
+        if not data_api_available:
+            logger.warning("COMTRADE API module not available, using fallback data")
+            return {"data": [], "status": "error", "message": "COMTRADE API module not available"}
+            
+        # Extract parameters
+        period = params.get('period', '2022')
+        reporter_code = params.get('reporter', '842')  # Default to USA
+        partner_code = params.get('partner', '156')    # Default to China
+        cmd_code = params.get('commodity', 'TOTAL')    # Default to all commodities
+        flow_code = params.get('flow')                 # Can be 'X', 'M', or None for both
+        
+        # Query the API
+        logger.info(f"Querying COMTRADE API with params: {params}")
+        df = comtradeapicall.previewFinalData(
+            typeCode='C',
+            freqCode='A',
+            clCode='HS',
+            period=period,
+            reporterCode=reporter_code,
+            partnerCode=partner_code,
+            cmdCode=cmd_code,
+            flowCode=flow_code,
+            maxRecords=500,
+            format_output='JSON',
+            includeDesc=True
+        )
+        
+        # Check if we got valid data
+        if 'message' in df.columns and df.shape[0] > 0 and 'error' in df.iloc[0]['message'].lower():
+            logger.warning(f"COMTRADE API returned an error: {df.iloc[0]['message']}")
+            return {"data": [], "status": "error", "message": df.iloc[0]['message']}
+            
+        # Process the data
+        return {"data": df.to_dict('records'), "status": "success"}
+    except Exception as e:
+        logger.error(f"Error querying COMTRADE API: {str(e)}")
+        return {"data": [], "status": "error", "message": str(e)}
 
 def clean_comtrade_data(data):
-    return pd.DataFrame()
+    """Clean and process data from the COMTRADE API"""
+    try:
+        if isinstance(data, dict) and "data" in data:
+            df = pd.DataFrame(data["data"])
+        elif isinstance(data, list):
+            df = pd.DataFrame(data)
+        else:
+            df = pd.DataFrame(data)
+            
+        # Handle empty data
+        if df.empty:
+            return df
+            
+        # Standardize column names
+        cols_to_keep = [
+            'rtCode', 'rtTitle', 'ptCode', 'ptTitle', 'yr', 'rgCode', 'rgDesc',
+            'cmdCode', 'cmdDesc', 'TradeValue', 'NetWeight', 'Quantity'
+        ]
+        
+        # Keep only columns that exist in the data
+        existing_cols = [col for col in cols_to_keep if col in df.columns]
+        df = df[existing_cols]
+        
+        return df
+    except Exception as e:
+        logger.error(f"Error cleaning COMTRADE data: {str(e)}")
+        return pd.DataFrame()  # Return empty DataFrame on error
 
 def predict_trade(data, model_type):
     return {"predictions": [], "status": "placeholder"}

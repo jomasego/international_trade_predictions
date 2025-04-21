@@ -162,7 +162,6 @@ class TradeAssistant:
                             "response": self.get_fallback_response(user_question),
                             "message": f"Error processing response: {str(e)}"
                         }
-                            
                 # Handle model still loading
                 elif response.status_code == 503:
                     print(f"Model is loading. Attempt {attempt+1}/{max_retries}")
@@ -175,7 +174,6 @@ class TradeAssistant:
                             "response": "The AI model is currently initializing. Please try again in a moment.",
                             "message": "Model loading"
                         }
-                            
                 # Handle other error status codes
                 else:
                     print(f"Request failed with status code {response.status_code}: {response.text}")
@@ -200,7 +198,6 @@ class TradeAssistant:
                         "response": "The request to the AI service timed out. Please try again later.",
                         "message": "Request timeout"
                     }
-                    
             except requests.exceptions.ConnectionError:
                 print(f"Connection error. Attempt {attempt+1}/{max_retries}")
                 if attempt < max_retries - 1:
@@ -212,7 +209,6 @@ class TradeAssistant:
                         "response": "I'm having trouble connecting to the server. This might be due to network restrictions in the deployment environment.",
                         "message": "Connection error"
                     }
-                    
             except Exception as e:
                 print(f"Unexpected error: {str(e)}")
                 if attempt < max_retries - 1:
