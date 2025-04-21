@@ -1,7 +1,13 @@
 pandas
 requests
-comtradeapicall
 scikit-learn
 xgboost
 tensorflow
 flask
+python-dotenv
+gunicorn
+matplotlib
+numpy
+joblib
+
+# Since comtradeapicall might not be available on PyPI, we'll add our own implementation

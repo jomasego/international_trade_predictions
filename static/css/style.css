@@ -1,4 +1,95 @@
-body { font-family: Arial, sans-serif; background: #f6f8fa; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #e3e9f6 0%, #f6f8fa 100%); margin: 0; }
+
+.card, .container {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(25,118,210,0.09), 0 1.5px 7px rgba(44,62,80,0.05);
+  padding: 2.2em 2em;
+  margin: 40px auto;
+  max-width: 820px;
+  transition: box-shadow 0.2s;
+}
+.card:hover, .container:hover {
+  box-shadow: 0 8px 32px rgba(25,118,210,0.13), 0 2px 10px rgba(44,62,80,0.08);
+}
+
+h1, h3 { text-align: center; color: #1976d2; letter-spacing: 0.01em; }
+
+form label { display: block; margin-top: 1.2em; color: #34495e; font-weight: 500; }
+form input, form button, form select {
+  width: 100%; padding: 0.55em; margin-top: 0.2em;
+  border: 1px solid #bfc9db; border-radius: 6px;
+  font-size: 1em; background: #f9fbff;
+  transition: border 0.18s, box-shadow 0.18s;
+}
+form input:focus, form select:focus {
+  border: 1.5px solid #1976d2;
+  outline: none;
+  box-shadow: 0 0 0 2px #e3e9f6;
+}
+form button {
+  background: linear-gradient(90deg, #1976d2 70%, #42a5f5 100%);
+  color: #fff;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  margin-top: 1.5em;
+  box-shadow: 0 2px 8px rgba(25,118,210,0.09);
+  transition: background 0.18s, box-shadow 0.18s, transform 0.12s;
+  letter-spacing: 0.03em;
+}
+form button:hover {
+  background: linear-gradient(90deg, #1565c0 70%, #64b5f6 100%);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 4px 16px rgba(25,118,210,0.13);
+}
+#results, #predictionResults, #exportsCountryResults, #importsCountryResults, #exportsProductResults, #importsProductResults, #rankingsResults, #bilateralResults, #dataDownloadStatus {
+  margin-top: 2em;
+  font-size: 1.08em;
+}
+.alert { padding: 1em; border-radius: 8px; margin-bottom: 1em; font-weight: bold; }
+.alert-danger { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e5ffe5; color: #27ae60; border: 1px solid #2ecc71; }
+.spinner {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid #1976d2;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  animation: spin 1s linear infinite;
+  margin: 2em auto;
+  display: block;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+table {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  margin-top: 2em; min-width: 600px;
+  background: #fff; border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(25,118,210,0.07);
+  font-size: 1.07em;
+}
+thead {
+  background: linear-gradient(90deg, #1976d2 70%, #42a5f5 100%);
+  color: #fff;
+}
+th, td {
+  padding: 0.65em 0.6em;
+  border: 1px solid #e3e9f6;
+  text-align: left;
+}
+tr:nth-child(even) { background: #f6f8fa; }
+tr:hover { background: #e3e9f6; transition: background 0.18s; }
+#tradeChart, #predictionChart, #exportsCountryChart, #importsCountryChart, #exportsProductChart, #importsProductChart, #rankingsChart, #bilateralChart {
+  max-width: 100%; margin-top: 2em; background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(25,118,210,0.07);
+}
+@media (max-width: 900px) {
+  .container, .card { max-width: 98vw; padding: 1.2em 0.5em; }
+  table { min-width: 350px; font-size: 0.97em; }
+}
 .container { max-width: 700px; margin: 40px auto; background: #fff; padding: 2em; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 h1 { text-align: center; color: #2c3e50; }
 form label { display: block; margin-top: 1em; color: #34495e; }

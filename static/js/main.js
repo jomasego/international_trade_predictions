@@ -6,7 +6,146 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Rankings Tab Logic ---
     // --- Bilateral Trade Tab Logic ---
     // --- Data Download Tab Logic ---
-    // --- ML Prediction Tab Logic ---
+    const dataDownloadForm = document.getElementById('dataDownloadForm');
+    const dataDownloadStatus = document.getElementById('dataDownloadStatus');
+    const dataDownloadChartDiv = document.createElement('div');
+    dataDownloadChartDiv.id = 'dataDownloadChart';
+    dataDownloadChartDiv.style.marginTop = '2em';
+    dataDownloadStatus && dataDownloadStatus.parentNode.insertBefore(dataDownloadChartDiv, dataDownloadStatus.nextSibling);
+    let dataDownloadChartData = null;
+    if (dataDownloadForm) {
+      dataDownloadForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        dataDownloadStatus.innerHTML = '';
+        dataDownloadChartDiv.innerHTML = '';
+        // ...existing fetch logic...
+        // After successful data fetch:
+        // dataDownloadChartData = fetchedData;
+        // renderDataDownloadChart(fetchedData);
+      });
+    }
+    // Render chart for Data Download tab (all rows)
+    // Generalized chart rendering for any tab
+    function renderModernChart(rows, chartDivId) {
+      const chartDiv = document.getElementById(chartDivId);
+      if (!chartDiv || !Array.isArray(rows) || rows.length === 0) return;
+      chartDiv.innerHTML = '';
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.min(900, window.innerWidth * 0.96);
+      canvas.height = 340;
+      canvas.style.background = '#fff';
+      canvas.style.borderRadius = '10px';
+      canvas.style.boxShadow = '0 2px 10px rgba(25,118,210,0.07)';
+      chartDiv.appendChild(canvas);
+      const ctx = canvas.getContext('2d');
+      // Try to find year and value columns
+      let years = [], values = [];
+      if (rows[0].year !== undefined && rows[0].value !== undefined) {
+        years = rows.map(r => +r.year);
+        values = rows.map(r => +r.value);
+      } else if (rows[0].hasOwnProperty('country') && rows[0].hasOwnProperty('value')) {
+        // For country rankings
+        years = rows.map((_, i) => i+1); // Rank as x-axis
+        values = rows.map(r => +r.value);
+      } else if (rows[0].hasOwnProperty('cmdCode') && rows[0].hasOwnProperty('value')) {
+        // For product by code
+        years = rows.map((_, i) => i+1);
+        values = rows.map(r => +r.value);
+      } else {
+        return;
+      }
+      const minYear = Math.min(...years), maxYear = Math.max(...years);
+      const minVal = Math.min(...values), maxVal = Math.max(...values);
+      // Draw grid
+      ctx.strokeStyle = '#e3e9f6';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 5; ++i) {
+        let y = 40 + i * (260 / 5);
+        ctx.beginPath();
+        ctx.moveTo(60, y);
+        ctx.lineTo(canvas.width - 30, y);
+        ctx.stroke();
+      }
+      // Axes
+      ctx.strokeStyle = '#1976d2';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(60, 40);
+      ctx.lineTo(60, 300);
+      ctx.lineTo(canvas.width - 30, 300);
+      ctx.stroke();
+      // Y labels
+      ctx.fillStyle = '#34495e';
+      ctx.font = '13px Segoe UI, Arial, sans-serif';
+      for (let i = 0; i <= 5; ++i) {
+        let v = minVal + (maxVal - minVal) * i / 5;
+        let y = 300 - (v - minVal) / (maxVal - minVal) * 260;
+        ctx.fillText(v.toFixed(0), 10, y + 4);
+      }
+      // X labels
+      for (let i = 0; i < years.length; ++i) {
+        let x = 60 + (years[i] - minYear) / (maxYear - minYear || 1) * (canvas.width - 90);
+        let label = (rows[0].country && rows[i].country) ? rows[i].country : (rows[0].cmdCode && rows[i].cmdCode ? rows[i].cmdCode : years[i]);
+        ctx.fillText(label, x - 12, 320);
+      }
+      // Draw line
+      ctx.strokeStyle = '#42a5f5';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i < years.length; ++i) {
+        let x = 60 + (years[i] - minYear) / (maxYear - minYear || 1) * (canvas.width - 90);
+        let y = 300 - (values[i] - minVal) / (maxVal - minVal || 1) * 260;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      // Draw points
+      for (let i = 0; i < years.length; ++i) {
+        let x = 60 + (years[i] - minYear) / (maxYear - minYear || 1) * (canvas.width - 90);
+        let y = 300 - (values[i] - minVal) / (maxVal - minVal || 1) * 260;
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = '#1976d2';
+        ctx.fill();
+      }
+      // Tooltip (simple hover)
+      canvas.onmousemove = function(ev) {
+        const rect = canvas.getBoundingClientRect();
+        const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+        let found = -1;
+        for (let i = 0; i < years.length; ++i) {
+          let x = 60 + (years[i] - minYear) / (maxYear - minYear || 1) * (canvas.width - 90);
+          let y = 300 - (values[i] - minVal) / (maxVal - minVal || 1) * 260;
+          if (Math.abs(mx - x) < 8 && Math.abs(my - y) < 8) { found = i; break; }
+        }
+        chartDiv.querySelectorAll('.chart-tooltip').forEach(e => e.remove());
+        if (found !== -1) {
+          const tip = document.createElement('div');
+          tip.className = 'chart-tooltip';
+          tip.style.position = 'absolute';
+          tip.style.left = (mx + 10) + 'px';
+          tip.style.top = (my + 10) + 'px';
+          tip.style.background = '#fff';
+          tip.style.border = '1px solid #1976d2';
+          tip.style.borderRadius = '6px';
+          tip.style.padding = '6px 12px';
+          tip.style.boxShadow = '0 2px 8px rgba(25,118,210,0.15)';
+          tip.style.pointerEvents = 'none';
+          tip.style.fontSize = '13px';
+          tip.style.zIndex = 1000;
+          tip.innerHTML = `<b>${(rows[found].country || rows[found].cmdCode || 'Year')}:</b> ${years[found]}<br><b>Value:</b> ${values[found]}`;
+          chartDiv.appendChild(tip);
+        }
+      };
+      canvas.onmouseleave = function() {
+        chartDiv.querySelectorAll('.chart-tooltip').forEach(e => e.remove());
+      };
+    }
+    // Backward compat: keep for Data Download tab
+    function renderDataDownloadChart(rows) {
+      renderModernChart(rows, 'dataDownloadChart');
+    }
+
     const predictionForm = document.getElementById('predictionForm');
     const predictionReporter = document.getElementById('predictionReporter');
     const predictionPartner = document.getElementById('predictionPartner');
@@ -49,6 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
           modelType: modelType
         };
         predictionResults.innerHTML = '<div>Predicting...</div>';
+        showSpinner();
         try {
           const resp = await fetch('/api/predict', {
             method: 'POST',
@@ -79,6 +219,8 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         } catch (err) {
           predictionResults.innerHTML = '<div>Error fetching prediction.</div>';
+        } finally {
+          hideSpinner();
         }
       });
       predictionDownloadBtn.addEventListener('click', function() {
@@ -158,10 +300,11 @@ document.addEventListener('DOMContentLoaded', function() {
       predictionChart.style.display = 'block';
     }
 
-    const dataDownloadForm = document.getElementById('dataDownloadForm');
+    // Already declared at the top:
+    // const dataDownloadForm = document.getElementById('dataDownloadForm');
     const dataDownloadReporter = document.getElementById('dataDownloadReporter');
     const dataDownloadPartner = document.getElementById('dataDownloadPartner');
-    const dataDownloadStatus = document.getElementById('dataDownloadStatus');
+    // const dataDownloadStatus = document.getElementById('dataDownloadStatus');
     if (dataDownloadReporter && typeof COUNTRY_CODES !== 'undefined') {
       dataDownloadReporter.innerHTML = '<option value="">All</option>';
       COUNTRY_CODES.forEach(c => {
@@ -317,12 +460,16 @@ document.addEventListener('DOMContentLoaded', function() {
             bilateralResults.innerHTML = html;
             if (data.rows.length > 0) bilateralDownloadBtn.style.display = 'inline-block';
             else bilateralDownloadBtn.style.display = 'none';
+            // Modern chart for Bilateral
+            renderModernChart(data.rows, 'bilateralChart');
           } else {
             bilateralResults.innerHTML = '<div>No data found for this country pair/year.</div>';
             bilateralDownloadBtn.style.display = 'none';
           }
         } catch (err) {
           bilateralResults.innerHTML = '<div>Error fetching data.</div>';
+        } finally {
+          hideSpinner();
         }
       });
       bilateralDownloadBtn.addEventListener('click', function() {
@@ -395,7 +542,9 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         });
         rankingsResults.innerHTML = '<div>Loading data for all countries...</div>';
+        showSpinner();
         const allResults = await Promise.all(allPromises);
+        hideSpinner();
         // Filter for non-null values and sort descending
         const filtered = allResults.filter(r => r.value !== null && r.value !== undefined).sort((a, b) => b.value - a.value);
         rankingsTableData = filtered;
@@ -408,6 +557,8 @@ document.addEventListener('DOMContentLoaded', function() {
         rankingsResults.innerHTML = html;
         if (filtered.length > 0) rankingsDownloadBtn.style.display = 'inline-block';
         else rankingsDownloadBtn.style.display = 'none';
+        // Modern chart for Rankings
+        renderModernChart(filtered, 'rankingsChart');
       });
       rankingsDownloadBtn.addEventListener('click', function() {
         if (!rankingsTableData) return;
@@ -457,6 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
           flowCode: 'M'
         };
         importsProductResults.innerHTML = '<div>Loading data for all products...</div>';
+        showSpinner();
         try {
           const resp = await fetch('/api/trade', {
             method: 'POST',
@@ -487,6 +639,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             html += '</tbody></table></div>';
             importsProductResults.innerHTML = html;
+        // Modern chart for Imports by Product
+        renderModernChart(sorted, 'importsProductChart');
             if (sorted.length > 0) importsProductDownloadBtn.style.display = 'inline-block';
             else importsProductDownloadBtn.style.display = 'none';
           } else {
@@ -495,6 +649,8 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         } catch (err) {
           importsProductResults.innerHTML = '<div>Error fetching data.</div>';
+        } finally {
+          hideSpinner();
         }
       });
       importsProductDownloadBtn.addEventListener('click', function() {
@@ -545,6 +701,7 @@ document.addEventListener('DOMContentLoaded', function() {
           flowCode: 'X'
         };
         exportsProductResults.innerHTML = '<div>Loading data for all products...</div>';
+        showSpinner();
         try {
           const resp = await fetch('/api/trade', {
             method: 'POST',
@@ -575,6 +732,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             html += '</tbody></table></div>';
             exportsProductResults.innerHTML = html;
+        // Modern chart for Exports by Product
+        renderModernChart(sorted, 'exportsProductChart');
             if (sorted.length > 0) exportsProductDownloadBtn.style.display = 'inline-block';
             else exportsProductDownloadBtn.style.display = 'none';
           } else {
@@ -583,6 +742,8 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         } catch (err) {
           exportsProductResults.innerHTML = '<div>Error fetching data.</div>';
+        } finally {
+          hideSpinner();
         }
       });
       exportsProductDownloadBtn.addEventListener('click', function() {
@@ -668,6 +829,8 @@ document.addEventListener('DOMContentLoaded', function() {
         importsCountryResults.innerHTML = html;
         if (filtered.length > 0) importsCountryDownloadBtn.style.display = 'inline-block';
         else importsCountryDownloadBtn.style.display = 'none';
+        // Modern chart for Imports by Country
+        renderModernChart(filtered, 'importsCountryChart');
       });
       importsCountryDownloadBtn.addEventListener('click', function() {
         if (!importsCountryTableData) return;
@@ -752,6 +915,8 @@ document.addEventListener('DOMContentLoaded', function() {
         exportsCountryResults.innerHTML = html;
         if (filtered.length > 0) exportsCountryDownloadBtn.style.display = 'inline-block';
         else exportsCountryDownloadBtn.style.display = 'none';
+        // Modern chart for Exports by Country
+        renderModernChart(filtered, 'exportsCountryChart');
       });
       exportsCountryDownloadBtn.addEventListener('click', function() {
         if (!exportsCountryTableData) return;
@@ -770,40 +935,6 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
-    // ---- Tab Navigation Logic ----
-    const tabs = document.querySelectorAll('#main-tabs .tab');
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabs.forEach((tab, idx) => {
-      tab.addEventListener('click', function() {
-        tabs.forEach((t, i) => {
-          t.classList.remove('active');
-          t.setAttribute('aria-selected', 'false');
-        });
-        tab.classList.add('active');
-        tab.setAttribute('aria-selected', 'true');
-        const tabName = tab.getAttribute('data-tab');
-        tabContents.forEach(panel => {
-          if (panel.id === 'tab-content-' + tabName) {
-            panel.style.display = 'block';
-          } else {
-            panel.style.display = 'none';
-          }
-        });
-        tab.focus();
-      });
-      tab.addEventListener('keydown', function(e) {
-        if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          tabs[(idx + 1) % tabs.length].focus();
-        } else if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          tabs[(idx - 1 + tabs.length) % tabs.length].focus();
-        } else if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          tab.click();
-        }
-      });
-    });
 
     const form = document.getElementById('tradeForm');
     const resultsDiv = document.getElementById('results');
@@ -870,15 +1001,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Initialize select2 on country dropdowns (after country list loads)
-    function tryInitSelect2() {
-        if (window.$ && window.$.fn && window.$.fn.select2) {
-            window.$('#reporterCode').select2();
-            window.$('#partnerCode').select2();
-        } else {
-            setTimeout(tryInitSelect2, 200);
-        }
-    }
-    tryInitSelect2();
 
     // --- World map visualization ---
     let map = null;
@@ -910,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!map) {
             map = L.map('worldMap').setView([20, 0], 2);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
+                attribution: 'OpenStreetMap contributors'
             }).addTo(map);
         }
         // Remove old markers
@@ -968,9 +1090,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderChart(json.columns, json.rows);
             }
         } catch (err) {
-            hideSpinner();
             showAlert('Request failed: ' + err, 'danger');
             resultsDiv.innerHTML = '';
+        } finally {
+            hideSpinner();
         }
     });
 
@@ -984,31 +1107,110 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = {};
         formData.forEach((value, key) => { if (value !== '') data[key] = value; });
         predictData.forEach((value, key) => { if (value !== '') data[key] = value; });
+        showSpinner();
         try {
             const response = await fetch('/api/predict', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            
             const json = await response.json();
+            
             if (json.error) {
                 showAlert('Prediction error: ' + json.error, 'danger');
                 predictionResult.innerHTML = '';
-            } else {
+            } else if (json.prediction !== undefined) {
                 showAlert('Prediction successful! Model: ' + (json.model_type || 'N/A'), 'success');
-                predictionResult.innerHTML = `<p><strong>Predicted Trade Value:</strong> ${json.prediction.toLocaleString(undefined, {maximumFractionDigits:2})}<br><small>(Model: ${json.model_type || ''} | MSE: ${json.mse ? json.mse.toLocaleString(undefined, {maximumFractionDigits:2}) : 'N/A'})</small></p>`;
+                
+                // Format the prediction result
+                let predictionValue = typeof json.prediction === 'number' ? 
+                    json.prediction.toLocaleString(undefined, {maximumFractionDigits:2}) : 
+                    json.prediction;
+                    
+                // Get MSE value safely
+                let mseValue = json.mse !== undefined ? 
+                    (typeof json.mse === 'number' ? json.mse.toLocaleString(undefined, {maximumFractionDigits:2}) : json.mse) : 
+                    'N/A';
+                    
+                predictionResult.innerHTML = `<p><strong>Predicted Trade Value:</strong> ${predictionValue}<br><small>(Model: ${json.model_type || ''} | MSE: ${mseValue})</small></p>`;
+                
+                // If we have historical data, plot a chart
+                if (json.historical && Array.isArray(json.historical)) {
+                    // Prepare table data for chart
+                    let rows = [];
+                    json.historical.forEach(row => {
+                        rows.push({ year: row.year, value: row.value, type: 'historical' });
+                    });
+                    rows.push({ year: json.prediction_year || predict_year, value: json.prediction, type: 'predicted' });
+                    
+                    // Save for export
+                    predictionTableData = rows;
+                    
+                    // Display the download button
+                    predictionDownloadBtn.style.display = 'inline-block';
+                    
+                    // Plot the chart
+                    plotPredictionChart(rows);
+                }
+            } else {
+                showAlert('No prediction data returned', 'danger');
+                predictionResult.innerHTML = '<div>No prediction data returned.</div>';
             }
         } catch (err) {
             showAlert('Prediction failed: ' + err, 'danger');
             predictionResult.innerHTML = '';
+        } finally {
+            hideSpinner();
         }
-    });
+      });
 
     // Load Chart.js dynamically if not present
     if (!window.Chart) {
         const script = document.createElement('script');
         script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-        script.onload = () => {};
         document.body.appendChild(script);
     }
-});
+
+    // ---- Tab Navigation Logic ----
+    const tabs = document.querySelectorAll('#main-tabs .tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabs.forEach((tab, idx) => {
+      tab.addEventListener('click', function() {
+        // Hide all spinners in all tab panels
+        document.querySelectorAll('.spinner').forEach(spinner => spinner.style.display = 'none');
+        hideSpinner(); // Also hide main spinner for good measure
+        tabs.forEach((t, i) => {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        const tabName = tab.getAttribute('data-tab');
+        tabContents.forEach(panel => {
+          if (panel.id === 'tab-content-' + tabName) {
+            panel.style.display = 'block';
+          } else {
+            panel.style.display = 'none';
+          }
+        });
+        tab.focus();
+      });
+      tab.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          tabs[(idx + 1) % tabs.length].focus();
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          tabs[(idx - 1 + tabs.length) % tabs.length].focus();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          tab.click();
+        }
+      });
+    });
+  });

@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Trade Assistant</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: #1a73e8;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        
+        .chat-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+        }
+        
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        
+        .user .message-content {
+            background-color: #1a73e8;
+            color: white;
+            border-top-right-radius: 4px;
+        }
+        
+        .assistant .message-content {
+            background-color: #f1f3f4;
+            color: #333;
+            border-top-left-radius: 4px;
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 15px;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            font-size: 15px;
+            outline: none;
+        }
+        
+        .chat-input button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            padding: 0 20px;
+            margin-left: 10px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .chat-input button:hover {
+            background-color: #0d62d1;
+        }
+        
+        .quick-questions {
+            margin-bottom: 20px;
+        }
+        
+        .quick-question-btn {
+            background-color: #f1f3f4;
+            border: none;
+            border-radius: 16px;
+            padding: 8px 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .quick-question-btn:hover {
+            background-color: #dfe1e5;
+        }
+        
+        .assistance-panels {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .assistance-panel {
+            flex: 1;
+            min-width: 300px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        
+        .assistance-panel h2 {
+            font-size: 18px;
+            margin-top: 0;
+            color: #1a73e8;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .assistance-panel input, 
+        .assistance-panel select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .assistance-panel button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .assistance-panel button:hover {
+            background-color: #0d62d1;
+        }
+        
+        .assistance-result {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f5f7fa;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-line;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top-color: #1a73e8;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 10px;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>AI Trade Assistant - Powered by Google Gemma-2b</h1>
+    </header>
+    
+    <div class="container">
+        <div class="chat-container">
+            <div class="chat-messages" id="chat-messages">
+                <div class="message assistant">
+                    <div class="message-content">
+                        Hello! I'm your AI Trade Assistant. I can help you understand trade data, explain HS codes, and recommend interesting trade patterns to explore. How can I assist you today?
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="chat-input" placeholder="Ask a question about trade data...">
+                <button id="chat-send-btn">Send</button>
+            </div>
+        </div>
+        
+        <div class="quick-questions">
+            <button class="quick-question-btn" data-question="What are HS codes?">What are HS codes?</button>
+            <button class="quick-question-btn" data-question="Explain the difference between imports and exports">Imports vs Exports</button>
+            <button class="quick-question-btn" data-question="What trade patterns are worth exploring?">Interesting Patterns</button>
+            <button class="quick-question-btn" data-question="How can I interpret trade data effectively?">Interpret Data</button>
+        </div>
+        
+        <div class="assistance-panels">
+            <div class="assistance-panel">
+                <h2>HS Code Explanation</h2>
+                <input type="text" id="hs-code-input" placeholder="Enter HS code (e.g., 8471)">
+                <button id="explain-hs-btn">Explain</button>
+                <div class="assistance-result" id="hs-explanation-result"></div>
+            </div>
+            
+            <div class="assistance-panel">
+                <h2>Trade Pattern Recommendations</h2>
+                <select id="recommendation-country">
+                    <option value="">Select a country (optional)</option>
+                    <!-- Will be populated by JavaScript -->
+                </select>
+                <input type="text" id="recommendation-product" placeholder="Product category (optional, e.g., Electronics)">
+                <button id="get-recommendation-btn">Get Recommendation</button>
+                <div class="assistance-result" id="recommendation-result"></div>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        AI Trade Assistant - Powered by Google Gemma-2b via HuggingFace
+    </footer>
+    
+    <script>
+        // Country codes for the recommendation dropdown
+        const COUNTRY_CODES = [
+            { code: "USA", name: "United States" },
+            { code: "CHN", name: "China" },
+            { code: "DEU", name: "Germany" },
+            { code: "JPN", name: "Japan" },
+            { code: "GBR", name: "United Kingdom" },
+            { code: "FRA", name: "France" },
+            { code: "IND", name: "India" },
+            { code: "BRA", name: "Brazil" },
+            { code: "KOR", name: "South Korea" },
+            { code: "CAN", name: "Canada" },
+            { code: "ITA", name: "Italy" },
+            { code: "MEX", name: "Mexico" },
+            { code: "ESP", name: "Spain" },
+            { code: "NLD", name: "Netherlands" },
+            { code: "AUS", name: "Australia" }
+        ];
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize the assistant interface
+            initAssistantUI();
+        });
+        
+        function initAssistantUI() {
+            // DOM elements
+            const chatInput = document.getElementById('chat-input');
+            const chatSendBtn = document.getElementById('chat-send-btn');
+            const chatMessages = document.getElementById('chat-messages');
+            const quickQuestionBtns = document.querySelectorAll('.quick-question-btn');
+            
+            // HS Code explanation
+            const hsCodeInput = document.getElementById('hs-code-input');
+            const explainHsBtn = document.getElementById('explain-hs-btn');
+            const hsExplanationResult = document.getElementById('hs-explanation-result');
+            
+            // Recommendation elements
+            const recommendationCountry = document.getElementById('recommendation-country');
+            const recommendationProduct = document.getElementById('recommendation-product');
+            const getRecommendationBtn = document.getElementById('get-recommendation-btn');
+            const recommendationResult = document.getElementById('recommendation-result');
+            
+            // Store chat history
+            let chatHistory = [];
+            
+            // Populate country dropdown for recommendations
+            if (recommendationCountry) {
+                COUNTRY_CODES.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.name;
+                    opt.textContent = c.name + ' (' + c.code + ')';
+                    recommendationCountry.appendChild(opt);
+                });
+            }
+            
+            // Initialize event listeners
+            if (chatInput && chatSendBtn) {
+                // Send message on button click
+                chatSendBtn.addEventListener('click', () => sendMessage());
+                
+                // Send message on Enter key
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        sendMessage();
+                    }
+                });
+            }
+            
+            // Quick question buttons
+            if (quickQuestionBtns) {
+                quickQuestionBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const question = btn.dataset.question;
+                        if (question && chatInput) {
+                            chatInput.value = question;
+                            sendMessage();
+                        }
+                    });
+                });
+            }
+            
+            // HS Code explanation
+            if (explainHsBtn && hsCodeInput) {
+                explainHsBtn.addEventListener('click', () => {
+                    const hsCode = hsCodeInput.value.trim();
+                    if (hsCode) {
+                        explainHsCode(hsCode);
+                    } else {
+                        hsExplanationResult.textContent = 'Please enter a valid HS code.';
+                    }
+                });
+            }
+            
+            // Trade recommendations
+            if (getRecommendationBtn) {
+                getRecommendationBtn.addEventListener('click', () => {
+                    const country = recommendationCountry.value;
+                    const product = recommendationProduct.value;
+                    if (country || product) {
+                        getTradeRecommendation(country, product);
+                    } else {
+                        recommendationResult.textContent = 'Please select a country or enter a product category.';
+                    }
+                });
+            }
+            
+            // Function to send user message to the assistant
+            function sendMessage() {
+                const userMessage = chatInput.value.trim();
+                if (!userMessage) return;
+                
+                // Add user message to chat
+                addMessageToChat('user', userMessage);
+                
+                // Clear input
+                chatInput.value = '';
+                
+                // Add user message to history
+                chatHistory.push({
+                    role: 'user',
+                    content: userMessage
+                });
+                
+                // Show loading indicator
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'loading';
+                loadingDiv.innerHTML = '<div class="loading-spinner"></div><div>Processing your question...</div>';
+                chatMessages.appendChild(loadingDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Send to API
+                fetch('/api/assistant/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: userMessage,
+                        chatHistory: chatHistory
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Remove loading indicator
+                    chatMessages.removeChild(loadingDiv);
+                    
+                    if (data.success) {
+                        // Add assistant response to chat
+                        addMessageToChat('assistant', data.response);
+                        
+                        // Add to history
+                        chatHistory.push({
+                            role: 'assistant',
+                            content: data.response
+                        });
+                        
+                        // Keep history at a reasonable size
+                        if (chatHistory.length > 20) {
+                            chatHistory = chatHistory.slice(-20);
+                        }
+                    } else {
+                        // Handle error
+                        addMessageToChat('assistant', 'Sorry, I encountered an error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    // Remove loading indicator
+                    if (loadingDiv.parentNode === chatMessages) {
+                        chatMessages.removeChild(loadingDiv);
+                    }
+                    
+                    // Show error message
+                    addMessageToChat('assistant', 'Sorry, there was an error processing your request. Please try again later.');
+                    console.error('Error:', error);
+                });
+            }
+            
+            // Function to explain HS code
+            function explainHsCode(hsCode) {
+                // Show loading
+                hsExplanationResult.textContent = 'Loading explanation...';
+                
+                // Send to API
+                fetch('/api/assistant/explain-hs-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        code: hsCode
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        hsExplanationResult.textContent = data.response;
+                    } else {
+                        hsExplanationResult.textContent = 'Error: ' + (data.message || 'Failed to get explanation');
+                    }
+                })
+                .catch(error => {
+                    hsExplanationResult.textContent = 'Error connecting to the assistant. Please try again later.';
+                    console.error('Error:', error);
+                });
+            }
+            
+            // Function to get trade recommendation
+            function getTradeRecommendation(country, product) {
+                // Show loading
+                recommendationResult.textContent = 'Loading recommendation...';
+                
+                // Send to API
+                fetch('/api/assistant/get-recommendation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        country: country,
+                        product: product
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        recommendationResult.textContent = data.response;
+                    } else {
+                        recommendationResult.textContent = 'Error: ' + (data.message || 'Failed to get recommendation');
+                    }
+                })
+                .catch(error => {
+                    recommendationResult.textContent = 'Error connecting to the assistant. Please try again later.';
+                    console.error('Error:', error);
+                });
+            }
+            
+            // Function to add a message to the chat
+            function addMessageToChat(role, content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message ' + role;
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
+                contentDiv.textContent = content;
+                
+                messageDiv.appendChild(contentDiv);
+                chatMessages.appendChild(messageDiv);
+                
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -3,6 +3,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Environment variables and API keys
+.env
+*.env
+example.env
+.env.*
+
+# HF Space config
+.gitignore.hf
+config.temp
+
 # C extensions
 *.so
 
