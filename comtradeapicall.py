@@ -14,8 +14,11 @@ from typing import Dict, List, Any, Optional
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Base URL for the UN COMTRADE API
+# Base URLs for the UN COMTRADE API
+# The current API may be down or the endpoint may have changed
+# We provide both the original endpoint and the newer data.un.org endpoint
 BASE_URL = "https://comtrade.un.org/api/get"
+BASE_URL_ALTERNATIVE = "https://data.un.org/ws/rest/comtrade/get"
 
 # Cache for storing previous results to reduce API calls
 _data_cache = {}
@@ -109,10 +112,15 @@ def previewFinalData(
         # Make the request with retries for network issues
         max_retries = 3
         retry_delay = 2  # seconds
+        use_alternative = False
         
         for attempt in range(max_retries):
             try:
-                response = requests.get(BASE_URL, params=params, timeout=15)
+                # Try the alternative endpoint if previous attempts failed with 404
+                current_url = BASE_URL_ALTERNATIVE if use_alternative else BASE_URL
+                logger.info(f"Using API endpoint: {current_url}")
+                
+                response = requests.get(current_url, params=params, timeout=15)
                 
                 # If request succeeded
                 if response.status_code == 200:
@@ -148,6 +156,18 @@ def previewFinalData(
                     time.sleep(wait_time)
                     continue
                     
+                # Handle 404 specifically - the API endpoint might have changed
+                elif response.status_code == 404:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"Request failed with status 404. Switching to alternative endpoint...")
+                        # Switch to alternative endpoint
+                        use_alternative = True
+                        time.sleep(retry_delay)
+                    else:
+                        logger.error(f"All retries failed with 404. API endpoints may be unavailable.")
+                        # Use fallback data when the API endpoint is not available
+                        return get_fallback_data(reporterCode, partnerCode, period, cmdCode, flowCode)
+                
                 # Other error status codes
                 else:
                     if attempt < max_retries - 1:
@@ -155,7 +175,8 @@ def previewFinalData(
                         time.sleep(retry_delay)
                     else:
                         logger.error(f"All retries failed. Last status: {response.status_code}, Response: {response.text}")
-                        return pd.DataFrame({'message': [f'API request failed with status {response.status_code}']})
+                        # Use fallback data for any persistent API errors
+                        return get_fallback_data(reporterCode, partnerCode, period, cmdCode, flowCode)
                         
             except requests.exceptions.Timeout:
                 logger.warning(f"Request timed out. Attempt {attempt+1}/{max_retries}")

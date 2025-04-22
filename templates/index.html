@@ -2,32 +2,42 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>International Trade Flow Predictor</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
     <!-- Leaflet for maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <!-- Custom trade flow map -->
+    <script src="/static/js/tradeflowmap.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <style>
+        /* Custom inline styles */
+        :root {
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+        }
+        body {
+            font-family: var(--font-sans);
+        }
         .advanced-chart-container {
             width: 100%;
             height: 400px;
-            margin-top: 1.5em;
             position: relative;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            border-radius: 8px;
+            border-radius: var(--radius-md);
             overflow: hidden;
+            border: 1px solid var(--border-color);
         }
         .treemap-container {
             width: 100%;
-            border: 1px solid #eaeaea;
-            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
         }
         .treemap-title {
-            font-weight: bold;
-            padding: 10px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #eaeaea;
+            font-weight: 600;
+            padding: 12px 16px;
+            background: var(--background-grey);
+            border-bottom: 1px solid var(--border-color);
         }
         .treemap-item:hover {
             opacity: 0.9;
@@ -35,54 +45,73 @@
             transition: all 0.2s ease;
             z-index: 5;
         }
+        /* Chart controls */
         .chart-controls {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin: 1em 0;
+            gap: 8px;
+            margin-bottom: 16px;
         }
+        
         .chart-type-btn {
+            display: inline-flex;
+            align-items: center;
             padding: 6px 12px;
-            background: #f0f4f8;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            background-color: var(--background-light);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
+        
         .chart-type-btn:hover {
-            background: #e3e9f6;
+            background-color: var(--primary-light);
+            color: var(--primary-color);
         }
+        
         .chart-type-btn.active {
-            background: #1976d2;
+            background-color: var(--primary-color);
             color: white;
-            border-color: #1976d2;
+            border-color: var(--primary-color);
         }
+        /* Cached data styling */
         .cached-data-panel {
-            margin-top: 2em;
-            border: 1px solid #eaeaea;
-            border-radius: 8px;
+            margin-top: 24px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
             overflow: hidden;
+            background-color: var(--background-light);
         }
+        
         .cached-data-header {
-            padding: 10px 15px;
-            background: #f8f9fa;
-            font-weight: bold;
-            border-bottom: 1px solid #eaeaea;
+            padding: 12px 16px;
+            background-color: var(--background-grey);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
+        
         .cached-data-list {
-            max-height: 300px;
+            max-height: 320px;
             overflow-y: auto;
             padding: 0;
+            margin: 0;
         }
+        
         .cached-data-item {
-            padding: 8px 15px;
-            border-bottom: 1px solid #eee;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: background-color 0.2s ease;
+        }
+        
+        .cached-data-item:hover {
+            background-color: var(--background-grey);
         }
         .cached-data-item:hover {
             background: #f9f9fa;
@@ -117,41 +146,78 @@
         .chat-container {
             display: flex;
             flex-direction: column;
-            height: 500px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            overflow: hidden;
+            max-height: 350px;
+            overflow-y: auto;
+            padding: 16px;
+            background-color: var(--background-light);
+            border-radius: var(--radius-md);
+            margin-bottom: 16px;
+            border: 1px solid var(--border-color);
         }
         
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 15px;
-            background: #f9f9fa;
+        .chat-message {
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            border-radius: var(--radius-md);
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        .user-message {
+            background-color: var(--primary-light);
+            color: var(--text-color);
+            margin-left: auto;
+            border-radius: 12px 12px 2px 12px;
+        }
+        
+        .assistant-message {
+            background-color: var(--background-grey);
+            color: var(--text-color);
+            margin-right: auto;
+            border-radius: 12px 12px 12px 2px;
         }
         
         .chat-input-container {
+            padding: 16px;
+            background-color: var(--background-light);
+            border-top: 1px solid var(--border-color);
             display: flex;
-            border-top: 1px solid #e0e0e0;
-            padding: 10px;
-            background: #fff;
+            align-items: center;
+            gap: 12px;
         }
         
         .chat-input {
             flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-            margin-right: 10px;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            color: var(--text-color);
+            transition: all 0.2s ease;
         }
         
-        .chat-send-btn {
-            background: #1976d2;
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 103, 223, 0.15);
+        }
+        
+        .chat-submit {
+            padding: 10px 16px;
+            background-color: var(--primary-color);
             color: white;
             border: none;
-            border-radius: 20px;
-            padding: 10px 20px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        
+        .chat-submit:hover {
+            background-color: #0055c4;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         
         .message {
@@ -233,90 +299,117 @@
         }
     </style>
 </head>
-<body>
-    <!-- Banner for sources and rate-limit info -->
-    <div id="info-banner" style="background:#f8f9fa;border-bottom:1px solid #e0e0e0;padding:6px 16px;font-size:13px;display:flex;justify-content:space-between;align-items:center;">
-      <div>Sources: UN COMTRADE, WTO, World Bank. Limit: 1 request/sec, 100 requests/hour.</div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-weight:500;">Powered by</span>
-        <a href="https://huggingface.co" target="_blank" style="display:flex;align-items:center;">
-          <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="Hugging Face" style="height:20px;">
-        </a>
-      </div>
+<body class="app-container">
+    <!-- Header with logo and navigation -->
+    <header class="header">
+        <div class="header-container">
+            <a href="/" class="app-logo">
+                <i class="fas fa-globe-americas"></i>
+                <span>Trade Flow Predictor</span>
+            </a>
+            <div class="header-actions">
+                <a href="https://huggingface.co/spaces/jomasego/trade-flow-predictor" target="_blank" class="huggingface-link">
+                    <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="Hugging Face">
+                    <span>View on Hugging Face</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Info banner for sources and rate-limit info -->
+    <div class="info-banner">
+        <div class="info-sources">
+            <span class="source-label">Sources:</span> UN COMTRADE, WTO, World Bank
+            <span class="info-divider">|</span>
+            <span class="limit-label">API Limit:</span> 1 request/sec, 100 requests/hour
+        </div>
+        <div class="powered-by">
+            <span>Powered by</span>
+            <a href="https://huggingface.co" target="_blank" class="huggingface-badge">
+                <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="Hugging Face">
+            </a>
+        </div>
     </div>
-    <!-- Tab Navigation -->
-    <nav>
-  <ul id="main-tabs" class="tab-bar">
-    <li class="tab active" data-tab="basics" tabindex="0" aria-selected="true">Basics</li>
-    <li class="tab" data-tab="exports-country" tabindex="0" aria-selected="false">Exports by Country</li>
-    <li class="tab" data-tab="imports-country" tabindex="0" aria-selected="false">Imports by Country</li>
-    <li class="tab" data-tab="exports-product" tabindex="0" aria-selected="false">Exports by Product</li>
-    <li class="tab" data-tab="imports-product" tabindex="0" aria-selected="false">Imports by Product</li>
-    <li class="tab" data-tab="rankings" tabindex="0" aria-selected="false">Rankings</li>
-    <li class="tab" data-tab="bilateral" tabindex="0" aria-selected="false">Bilateral Trade</li>
-    <li class="tab" data-tab="data-download" tabindex="0" aria-selected="false">Data Download</li>
-    <li class="tab" data-tab="prediction" tabindex="0" aria-selected="false">Prediction (ML)</li>
-    <li class="tab" data-tab="data-cache" tabindex="0" aria-selected="false">Data Cache</li>
-    <li class="tab" data-tab="assistant" tabindex="0" aria-selected="false">AI Assistant <span class="badge">New</span></li>
-  </ul>
-</nav>
-<style>
-.tab-bar {
-  display: flex;
-  list-style: none;
-  padding: 0;
-  margin: 0 0 16px 0;
-  border-bottom: 2px solid #e4e4e4;
-  background: #f9f9fa;
-}
-.tab-bar .tab {
-  padding: 12px 28px 10px 28px;
-  margin: 0 2px;
-  border: none;
-  background: none;
-  font-size: 16px;
-  color: #444;
-  cursor: pointer;
-  border-radius: 8px 8px 0 0;
-  transition: background 0.18s, color 0.18s;
-  outline: none;
-  position: relative;
-}
-.tab-bar .tab.active,
-.tab-bar .tab:focus {
-  background: #fff;
-  color: #1976d2;
-  box-shadow: 0 -2px 8px rgba(25,118,210,0.07);
-  border-bottom: 2px solid #1976d2;
-  z-index: 2;
-}
-.tab-bar .tab:hover:not(.active) {
-  background: #e3e9f6;
-  color: #1976d2;
-}
-</style>
+
+    <!-- Main content container -->
+    <div class="main-content">
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <ul id="main-tabs" class="tab-bar">
+                <li class="tab active" data-tab="basics" tabindex="0" aria-selected="true">Basics</li>
+                <li class="tab" data-tab="exports-country" tabindex="0" aria-selected="false">Exports by Country</li>
+                <li class="tab" data-tab="imports-country" tabindex="0" aria-selected="false">Imports by Country</li>
+                <li class="tab" data-tab="exports-product" tabindex="0" aria-selected="false">Exports by Product</li>
+                <li class="tab" data-tab="imports-product" tabindex="0" aria-selected="false">Imports by Product</li>
+                <li class="tab" data-tab="rankings" tabindex="0" aria-selected="false">Rankings</li>
+                <li class="tab" data-tab="bilateral" tabindex="0" aria-selected="false">Bilateral Trade</li>
+                <li class="tab" data-tab="data-download" tabindex="0" aria-selected="false">Data Download</li>
+                <li class="tab" data-tab="prediction" tabindex="0" aria-selected="false">Prediction (ML)</li>
+                <li class="tab" data-tab="data-cache" tabindex="0" aria-selected="false">Data Cache</li>
+                <li class="tab" data-tab="assistant" tabindex="0" aria-selected="false">AI Assistant <span class="badge">New</span></li>
+            </ul>
+        </nav>
+<!-- Tab content begins here -->
     <!-- Tab Content Panels -->
     <div id="tab-content-basics" class="tab-content" style="display:block;">
-    <div class="container">
-        <h1>International Trade Flow Predictor</h1>
-        <div id="alert" class="alert" style="display:none;"></div>
-        <form id="tradeForm">
-            <label for="reporterCode">Reporter Country:</label>
-            <select id="reporterCode" name="reporterCode"></select>
-            <label for="partnerCode">Partner Country:</label>
-            <select id="partnerCode" name="partnerCode"></select>
-            <label for="period">Year:</label>
-            <input type="text" id="period" name="period" value="2022" placeholder="e.g. 2022" title="Year (e.g. 2022)">
-            <label for="cmdCode">Commodity Code (HS or TOTAL):</label>
-            <input type="text" id="cmdCode" name="cmdCode" value="TOTAL" placeholder="e.g. TOTAL or 1001" title="HS code or TOTAL for all commodities">
-            <label for="flowCode">Flow (M=Import, X=Export, blank=All):</label>
-            <input type="text" id="flowCode" name="flowCode" placeholder="M, X or leave blank" title="M = Import, X = Export, blank = All">
-            <button type="submit">Fetch Trade Data</button>
-        </form>
-        <div id="spinner" class="spinner" style="display:none;"></div>
-        <div id="results"></div>
-        <canvas id="tradeChart" style="margin-top:2em;max-width:100%;display:none;"></canvas>
-
+        <div class="card">
+            <div class="section-heading">
+                <h2>Trade Data Analysis</h2>
+            </div>
+            
+            <form id="tradeForm">
+                <div style="display:flex;flex-wrap:wrap;gap:16px;">
+                    <div style="flex:1;min-width:240px;">
+                        <label for="reporterCode">Reporter Country</label>
+                        <select id="reporterCode" name="reporterCode"></select>
+                    </div>
+                    <div style="flex:1;min-width:240px;">
+                        <label for="partnerCode">Partner Country</label>
+                        <select id="partnerCode" name="partnerCode"></select>
+                    </div>
+                </div>
+                
+                <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:8px;">
+                    <div style="flex:1;min-width:240px;">
+                        <label for="year">Year</label>
+                        <input type="number" id="year" name="year" value="2022" min="2000" max="2100">
+                    </div>
+                    <div style="flex:1;min-width:240px;">
+                        <label for="cmdCode">Commodity Code</label>
+                        <input type="text" id="cmdCode" name="cmdCode" value="TOTAL" placeholder="e.g., TOTAL or specific HS code">
+                    </div>
+                </div>
+                
+                <div style="margin-top:16px;">
+                    <button type="submit" class="btn-primary">Generate Trade Report</button>
+                </div>
+            </form>
+            
+            <div id="results" class="results-section"></div>
+        </div>
+        <!-- Visualization Container -->
+        <div class="chart-container" style="display:none;margin-top:24px;" id="visualizationContainer">
+            <div class="section-heading">
+                <h3>Trade Data Visualization</h3>
+            </div>
+            
+            <div class="chart-controls">
+                <button class="chart-type-btn active" data-type="bar">
+                    <i class="fas fa-chart-bar"></i> Bar Chart
+                </button>
+                <button class="chart-type-btn" data-type="pie">
+                    <i class="fas fa-chart-pie"></i> Pie Chart
+                </button>
+                <button class="chart-type-btn" data-type="line">
+                    <i class="fas fa-chart-line"></i> Line Chart
+                </button>
+                <button class="chart-type-btn" data-type="treemap">
+                    <i class="fas fa-th-large"></i> Treemap
+                </button>
+            </div>
+            
+            <canvas id="tradeChart" height="350"></canvas>
+        </div>
     </div>
     <!-- Select2 for searchable dropdowns -->
     
@@ -329,7 +422,6 @@
     <script src="/static/js/main.js"></script>
     <script src="/static/js/enhanced_visualizations.js"></script>
     <script src="/static/js/assistant.js"></script>
-    <div id="worldMap" style="width:100%;height:360px;margin-top:2em;"></div>
     <div id="extraVisualizations" style="margin-top:2em;"></div>
     <script>
       // Populate country dropdowns from COUNTRY_CODES
@@ -356,43 +448,123 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     </div>
     <div id="tab-content-exports-country" class="tab-content" style="display:none;">
-  <h3>Exports by Country</h3>
-  <form id="exportsCountryForm" style="margin-bottom:1em;">
-    <label for="exportsCountryYear">Year:</label>
-    <input type="number" id="exportsCountryYear" name="exportsCountryYear" value="2022" min="2000" max="2100" style="width:90px;">
-    <label for="exportsCountryCommodity">Commodity Code (HS or TOTAL):</label>
-    <input type="text" id="exportsCountryCommodity" name="exportsCountryCommodity" value="TOTAL" style="width:110px;">
-    <label for="exportsCountryFlow">Flow:</label>
-    <select id="exportsCountryFlow" name="exportsCountryFlow">
-      <option value="X">Export</option>
-      <option value="M">Import</option>
-      <option value="">All</option>
-    </select>
-    <button type="submit">Show Table</button>
-  </form>
-  <button id="exportsCountryDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
-  <div id="exportsCountryResults"></div>
-  <div id="exportsCountryChart" style="margin-top:2em;"></div>
+        <div class="card">
+            <div class="section-heading">
+                <h2>Exports by Country</h2>
+                <p class="section-description">Analyze international export flows by country and year</p>
+            </div>
+            
+            <form id="exportsCountryForm">
+                <div class="form-row">
+                    <div class="form-group col-md-4">
+                        <label for="exportsCountryYear">Year</label>
+                        <input type="number" id="exportsCountryYear" name="exportsCountryYear" value="2022" min="2000" max="2100" class="input-field">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label for="exportsCountryCommodity">Commodity Code</label>
+                        <input type="text" id="exportsCountryCommodity" name="exportsCountryCommodity" value="TOTAL" placeholder="e.g., TOTAL or HS code" class="input-field">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label for="exportsCountryFlow">Flow Type</label>
+                        <select id="exportsCountryFlow" name="exportsCountryFlow" class="select-field">
+                            <option value="X">Export</option>
+                            <option value="M">Import</option>
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Show Trade Data</button>
+                    <button id="exportsCountryDownloadBtn" class="btn-secondary" style="display:none;">Download CSV</button>
+                </div>
+            </form>
+            
+            <div id="exportsCountryResults" class="results-section"></div>
+        </div>
+        
+        <!-- Trade Flow Visualization Card -->
+        <div class="card" id="exportsCountryChartCard" style="margin-top:24px;">
+            <div class="section-heading">
+                <h3>Exports Flow Visualization</h3>
+            </div>
+            
+            <div class="visualization-tabs">
+                <div class="chart-controls">
+                    <button class="chart-type-btn active" data-type="bar">
+                        <i class="fas fa-chart-bar"></i> Bar Chart
+                    </button>
+                    <button class="chart-type-btn" data-type="map">
+                        <i class="fas fa-globe"></i> Trade Flow Map
+                    </button>
+                </div>
+            </div>
+            
+            <div id="exportsCountryChart" class="chart-area"></div>
+            
+            <!-- Trade Flow Map -->
+            <div id="exportsCountryFlowMap" class="trade-flow-map" data-height="350" data-show-labels="true" style="display:none;margin-top:16px;"></div>
+        </div>
 </div>
     <div id="tab-content-imports-country" class="tab-content" style="display:none;">
-  <h3>Imports by Country</h3>
-  <form id="importsCountryForm" style="margin-bottom:1em;">
-    <label for="importsCountryYear">Year:</label>
-    <input type="number" id="importsCountryYear" name="importsCountryYear" value="2022" min="2000" max="2100" style="width:90px;">
-    <label for="importsCountryCommodity">Commodity Code (HS or TOTAL):</label>
-    <input type="text" id="importsCountryCommodity" name="importsCountryCommodity" value="TOTAL" style="width:110px;">
-    <label for="importsCountryFlow">Flow:</label>
-    <select id="importsCountryFlow" name="importsCountryFlow">
-      <option value="M">Import</option>
-      <option value="X">Export</option>
-      <option value="">All</option>
-    </select>
-    <button type="submit">Show Table</button>
-  </form>
-  <button id="importsCountryDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
-  <div id="importsCountryResults"></div>
-  <div id="importsCountryChart" style="margin-top:2em;"></div>
-</div>
+        <div class="card">
+            <div class="section-heading">
+                <h2>Imports by Country</h2>
+                <p class="section-description">Analyze international import flows by country and year</p>
+            </div>
+            
+            <form id="importsCountryForm">
+                <div class="form-row">
+                    <div class="form-group col-md-4">
+                        <label for="importsCountryYear">Year</label>
+                        <input type="number" id="importsCountryYear" name="importsCountryYear" value="2022" min="2000" max="2100" class="input-field">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label for="importsCountryCommodity">Commodity Code</label>
+                        <input type="text" id="importsCountryCommodity" name="importsCountryCommodity" value="TOTAL" placeholder="e.g., TOTAL or HS code" class="input-field">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label for="importsCountryFlow">Flow Type</label>
+                        <select id="importsCountryFlow" name="importsCountryFlow" class="select-field">
+                            <option value="M">Import</option>
+                            <option value="X">Export</option>
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Show Trade Data</button>
+                    <button id="importsCountryDownloadBtn" class="btn-secondary" style="display:none;">Download CSV</button>
+                </div>
+            </form>
+            
+            <div id="importsCountryResults" class="results-section"></div>
+        </div>
+        
+        <!-- Trade Flow Visualization Card -->
+        <div class="card" id="importsCountryChartCard" style="margin-top:24px;">
+            <div class="section-heading">
+                <h3>Imports Flow Visualization</h3>
+            </div>
+            
+            <div class="visualization-tabs">
+                <div class="chart-controls">
+                    <button class="chart-type-btn active" data-type="bar">
+                        <i class="fas fa-chart-bar"></i> Bar Chart
+                    </button>
+                    <button class="chart-type-btn" data-type="map">
+                        <i class="fas fa-globe"></i> Trade Flow Map
+                    </button>
+                </div>
+            </div>
+            
+            <div id="importsCountryChart" class="chart-area"></div>
+            
+            <!-- Trade Flow Map -->
+            <div id="importsCountryFlowMap" class="trade-flow-map" data-height="350" data-show-labels="true" style="display:none;margin-top:16px;"></div>
+        </div>
+    </div>
     <div id="tab-content-exports-product" class="tab-content" style="display:none;">
   <h3>Exports by Product</h3>
   <form id="exportsProductForm" style="margin-bottom:1em;">
@@ -438,22 +610,67 @@
   <div id="rankingsChart" style="margin-top:2em;"></div>
 </div>
     <div id="tab-content-bilateral" class="tab-content" style="display:none;">
-  <h3>Bilateral Trade</h3>
-  <form id="bilateralForm" style="margin-bottom:1em;">
-    <label for="bilateralReporter">Reporter Country:</label>
-    <select id="bilateralReporter" name="bilateralReporter"></select>
-    <label for="bilateralPartner">Partner Country:</label>
-    <select id="bilateralPartner" name="bilateralPartner"></select>
-    <label for="bilateralYear">Year:</label>
-    <input type="number" id="bilateralYear" name="bilateralYear" value="2022" min="2000" max="2100" style="width:90px;">
-    <label for="bilateralCommodity">Commodity Code (HS or TOTAL):</label>
-    <input type="text" id="bilateralCommodity" name="bilateralCommodity" value="TOTAL" style="width:110px;">
-    <button type="submit">Show Trade</button>
-  </form>
-  <button id="bilateralDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
-  <div id="bilateralResults"></div>
-  <div id="bilateralChart" style="margin-top:2em;"></div>
-</div>
+        <div class="card">
+            <div class="section-heading">
+                <h2>Bilateral Trade Analysis</h2>
+                <p class="section-description">Analyze trade flows between two specific countries</p>
+            </div>
+            
+            <form id="bilateralForm">
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="bilateralReporter">Reporter Country</label>
+                        <select id="bilateralReporter" name="bilateralReporter" class="select-field"></select>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="bilateralPartner">Partner Country</label>
+                        <select id="bilateralPartner" name="bilateralPartner" class="select-field"></select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="bilateralYear">Year</label>
+                        <input type="number" id="bilateralYear" name="bilateralYear" value="2022" min="2000" max="2100" class="input-field">
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="bilateralCommodity">Commodity Code</label>
+                        <input type="text" id="bilateralCommodity" name="bilateralCommodity" value="TOTAL" placeholder="e.g., TOTAL or HS code" class="input-field">
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Show Bilateral Trade</button>
+                    <button id="bilateralDownloadBtn" class="btn-secondary" style="display:none;">Download CSV</button>
+                </div>
+            </form>
+            
+            <div id="bilateralResults" class="results-section"></div>
+        </div>
+        
+        <!-- Bilateral Trade Flow Visualization Card -->
+        <div class="card" id="bilateralChartCard" style="margin-top:24px;">
+            <div class="section-heading">
+                <h3>Bilateral Trade Flow Visualization</h3>
+            </div>
+            
+            <div class="visualization-tabs">
+                <div class="chart-controls">
+                    <button class="chart-type-btn" data-type="bar">
+                        <i class="fas fa-chart-bar"></i> Bar Chart
+                    </button>
+                    <button class="chart-type-btn active" data-type="map">
+                        <i class="fas fa-globe"></i> Trade Flow Map
+                    </button>
+                </div>
+            </div>
+            
+            <div id="bilateralChart" class="chart-area"></div>
+            
+            <!-- Trade Flow Map (Active by default for bilateral) -->
+            <div id="bilateralFlowMap" class="trade-flow-map" data-height="400" data-show-labels="true" data-demo="true"></div>
+        </div>
+    </div>
     <div id="tab-content-data-download" class="tab-content" style="display:none;">
   <h3>Data Download</h3>
   <form id="dataDownloadForm" style="margin-bottom:1em;">
@@ -480,135 +697,200 @@
   <div id="dataDownloadStatus"></div>
 </div>
 <div id="tab-content-prediction" class="tab-content" style="display:none;">
-  <h3>Trade Flow Prediction (ML)</h3>
-  <form id="predictionForm" style="margin-bottom:1em;">
-    <label for="predictionReporter">Reporter Country:</label>
-    <select id="predictionReporter" name="predictionReporter"></select>
-    <label for="predictionPartner">Partner Country:</label>
-    <select id="predictionPartner" name="predictionPartner"></select>
-    <label for="predictionYear">Year to Predict:</label>
-    <input type="number" id="predictionYear" name="predictionYear" value="2023" min="2000" max="2100" style="width:90px;">
-    <label for="predictionCommodity">Commodity Code (HS or TOTAL):</label>
-    <input type="text" id="predictionCommodity" name="predictionCommodity" value="TOTAL" style="width:110px;">
-    <label for="predictionModel">Model:</label>
-    <select id="predictionModel" name="predictionModel">
-      <option value="linear">Linear Regression</option>
-      <option value="xgboost">XGBoost</option>
-      <option value="lstm">LSTM</option>
-    </select>
-    <button type="submit">Predict</button>
-  </form>
-  <button id="predictionDownloadBtn" style="display:none;margin-bottom:1em;">Download CSV</button>
-  <div id="predictionResults"></div>
-  <div id="predictionChart" style="margin-top:2em;"></div>
+    <div class="card">
+        <div class="section-heading">
+            <h2>Trade Flow Prediction (ML)</h2>
+        </div>
+        
+        <form id="predictionForm">
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label for="predictionReporter">Reporter Country</label>
+                    <select id="predictionReporter" name="predictionReporter" class="select-field"></select>
+                </div>
+                <div class="form-group col-md-6">
+                    <label for="predictionPartner">Partner Country</label>
+                    <select id="predictionPartner" name="predictionPartner" class="select-field"></select>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label for="predictionYear">Year to Predict</label>
+                    <input type="number" id="predictionYear" name="predictionYear" value="2023" min="2000" max="2100" class="input-field">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="predictionCommodity">Commodity Code</label>
+                    <input type="text" id="predictionCommodity" name="predictionCommodity" value="TOTAL" placeholder="e.g., TOTAL or HS code" class="input-field">
+                </div>
+                <div class="form-group col-md-4">
+                    <label for="predictionModel">Model</label>
+                    <select id="predictionModel" name="predictionModel" class="select-field">
+                        <option value="linear">Linear Regression</option>
+                        <option value="xgboost">XGBoost</option>
+                        <option value="lstm">LSTM</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">Generate Prediction</button>
+                <button id="predictionDownloadBtn" class="btn-secondary" style="display:none;">Download CSV</button>
+            </div>
+        </form>
+        
+        <div id="predictionResults" class="results-container"></div>
+    </div>
+    
+    <div class="card" id="predictionChartCard" style="display:none;margin-top:24px;">
+        <div class="section-heading">
+            <h3>Prediction Visualization</h3>
+        </div>
+        <div id="predictionChart" class="chart-area"></div>
+    </div>
 </div>
 
 <!-- Data Cache Management Panel -->
 <div id="tab-content-data-cache" class="tab-content" style="display:none;">
-  <div class="container">
-    <h3>Data Cache Management</h3>
-    <p>View, use, and manage previously cached trade data to reduce API calls and work offline.</p>
-    
-    <div class="cached-data-panel">
-      <div class="cached-data-header">
-        <span>Cached Datasets</span>
-        <div>
-          <button id="refreshCacheBtn" class="action-btn"><i class="fas fa-sync-alt"></i> Refresh</button>
-          <button id="clearAllCacheBtn" class="action-btn delete"><i class="fas fa-trash"></i> Clear All</button>
+    <div class="card">
+        <div class="section-heading">
+            <h2>Data Cache Management</h2>
+            <p class="section-description">Manage previously cached trade data to reduce API calls and work offline</p>
         </div>
-      </div>
-      <div id="cachedDataList" class="cached-data-list">
-        <!-- Cache items will be populated here -->
-        <div class="cached-data-item" style="text-align:center;padding:20px;color:#666;">
-          <i class="fas fa-spinner fa-spin"></i> Loading cached data...      
+        
+        <div class="cache-control-header">
+            <h3 class="panel-title">Cached Datasets</h3>
+            <div class="action-buttons">
+                <button id="refreshCacheBtn" class="btn-secondary btn-icon">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <button id="clearAllCacheBtn" class="btn-danger btn-icon">
+                    <i class="fas fa-trash"></i> Clear All
+                </button>
+            </div>
         </div>
-      </div>
+        
+        <div id="cachedDataList" class="cached-data-container">
+            <!-- Cache items will be populated here -->
+            <div class="loading-indicator">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Loading cached data...</span>
+            </div>
+        </div>
     </div>
     
-    <div class="chart-controls">
-      <h4>Visualization Options:</h4>
-      <button class="chart-type-btn" data-type="bar"><i class="fas fa-chart-bar"></i> Bar Chart</button>
-      <button class="chart-type-btn" data-type="pie"><i class="fas fa-chart-pie"></i> Pie Chart</button>
-      <button class="chart-type-btn" data-type="line"><i class="fas fa-chart-line"></i> Line Chart</button>
-      <button class="chart-type-btn" data-type="treemap"><i class="fas fa-th-large"></i> Treemap</button>
-      <button class="chart-type-btn" data-type="map"><i class="fas fa-globe"></i> World Map</button>
+    <div class="card" id="cacheVisualizationCard" style="margin-top:24px;">
+        <div class="section-heading">
+            <h3>Visualization Options</h3>
+        </div>
+        
+        <div class="chart-control-buttons">
+            <button class="chart-type-btn" data-type="bar">
+                <i class="fas fa-chart-bar"></i> Bar Chart
+            </button>
+            <button class="chart-type-btn" data-type="pie">
+                <i class="fas fa-chart-pie"></i> Pie Chart
+            </button>
+            <button class="chart-type-btn" data-type="line">
+                <i class="fas fa-chart-line"></i> Line Chart
+            </button>
+            <button class="chart-type-btn" data-type="treemap">
+                <i class="fas fa-th-large"></i> Treemap
+            </button>
+            <button class="chart-type-btn" data-type="map">
+                <i class="fas fa-globe"></i> World Map
+            </button>
+        </div>
+        
+        <div id="cacheVisualization" class="visualization-container">
+            <!-- Visualizations will be rendered here -->
+        </div>
     </div>
-    
-    <div id="cacheVisualization" class="advanced-chart-container" style="display:none;">
-      <!-- Visualizations will be rendered here -->
-    </div>
-  </div>
+</div>
 </div>
 
 <div id="tab-content-assistant" class="tab-content" style="display:none;">
-  <div class="container">
-    <h3>AI Trade Assistant <span style="font-size:14px;color:#666;font-weight:normal;display:flex;align-items:center;gap:6px;">
-      (Powered by Google Gemma-2b on 
-      <a href="https://huggingface.co/google/gemma-2b-it" target="_blank" style="display:flex;align-items:center;text-decoration:none;">
-        <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="Hugging Face" style="height:18px;margin-right:3px;"> Hugging Face
-      </a>)
-    </span></h3>
-    
-    <div class="chat-container" style="border: 1px solid #dee2e6; border-radius: 8px; height: 500px; display: flex; flex-direction: column; overflow: hidden;">
-      <div id="chat-messages" class="chat-messages" style="flex: 1; overflow-y: auto; padding: 20px; background-color: #f8f9fa;">
-        <!-- Welcome message -->
-        <div class="message message-assistant" style="background-color: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 80%;">
-          <p style="margin-bottom: 10px;">👋 Hello! I'm your Trade Data Assistant powered by Google Gemma-2b.</p>
-          <p style="margin-bottom: 5px;">I can help you with:</p>
-          <ul style="padding-left: 20px; margin-bottom: 10px;">
-            <li>Understanding trade terminology and HS codes</li>
-            <li>Exploring interesting trade patterns</li>
-            <li>Finding specific trade data</li>
-            <li>Interpreting visualization results</li>
-            <li>Providing insights about international trade</li>
-          </ul>
-          <p>How can I assist you today?</p>
-        </div>
-      </div>
-      
-      <div class="chat-input-area" style="display: flex; padding: 15px; background-color: white; border-top: 1px solid #dee2e6;">
-        <input type="text" id="chat-input" class="chat-input" placeholder="Ask me about trade data, HS codes, or how to use this application..." style="flex: 1; padding: 10px 15px; border: 1px solid #ced4da; border-radius: 4px; margin-right: 10px;">
-        <button id="chat-send-btn" class="chat-send-btn" style="background-color: #0d6efd; color: white; border: none; border-radius: 4px; padding: 10px 15px; cursor: pointer;">Send</button>
-      </div>
-    </div>
-    
-    <div class="quick-questions" style="margin-top: 20px;">
-      <h5 style="margin-bottom: 15px;">Try asking:</h5>
-      <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-        <button class="quick-question-btn" style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px 15px; cursor: pointer;">What are HS codes?</button>
-        <button class="quick-question-btn" style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px 15px; cursor: pointer;">Explain the difference between imports and exports</button>
-        <button class="quick-question-btn" style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px 15px; cursor: pointer;">What does HS code 8471 represent?</button>
-        <button class="quick-question-btn" style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px 15px; cursor: pointer;">How can I interpret trade data?</button>
-        <button class="quick-question-btn" style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px 15px; cursor: pointer;">Recommend interesting trade patterns to explore</button>
-      </div>
-    </div>
-    
-    <div class="specialized-assistance" style="margin-top: 30px;">
-      <h5 style="margin-bottom: 15px;">Specialized Assistance:</h5>
-      <div style="display:flex; flex-wrap:wrap; gap:15px;">
-        <div style="flex:1; min-width:300px;">
-          <h6>HS Code Lookup</h6>
-          <div style="display: flex; gap: 10px;">
-            <input type="text" id="hs-code-input" placeholder="Enter HS code (e.g. 8471)" style="flex: 1; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px;">
-            <button id="explain-hs-btn" style="background-color: #28a745; color: white; border: none; border-radius: 4px; padding: 8px 15px; cursor: pointer;">Explain</button>
-          </div>
+    <div class="card">
+        <div class="section-heading">
+            <h2>AI Trade Assistant</h2>
+            <div class="model-badge">
+                <img src="https://huggingface.co/front/assets/huggingface_logo.svg" alt="Hugging Face" class="hf-logo">
+                <span>Powered by Google Gemma-2b</span>
+            </div>
         </div>
         
-        <div style="flex:1; min-width:300px;">
-          <h6>Trade Recommendation</h6>
-          <div style="margin-bottom: 10px;">
-            <select id="recommendation-country" style="width: 100%; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px;">
-              <option value="">Select a country (optional)</option>
-              <!-- Will be populated from COUNTRY_CODES -->
-            </select>
-          </div>
-          <div style="display: flex; gap: 10px;">
-            <input type="text" id="recommendation-product" placeholder="Product (optional)" style="flex: 1; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px;">
-            <button id="get-recommendation-btn" style="background-color: #17a2b8; color: white; border: none; border-radius: 4px; padding: 8px 15px; cursor: pointer;">Get Insights</button>
-          </div>
+        <div class="chat-container">
+            <div id="chat-messages" class="chat-messages">
+                <!-- Welcome message -->
+                <div class="message message-assistant">
+                    <div class="message-content">
+                        <p>👋 Hello! I'm your Trade Data Assistant powered by Google Gemma-2b.</p>
+                        <p>I can help you with:</p>
+                        <ul>
+                            <li>Understanding trade terminology and HS codes</li>
+                            <li>Exploring interesting trade patterns</li>
+                            <li>Finding specific trade data</li>
+                            <li>Interpreting visualization results</li>
+                            <li>Providing insights about international trade</li>
+                        </ul>
+                        <p>How can I assist you today?</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <input type="text" id="chat-input" class="chat-input" placeholder="Ask me about trade data, HS codes, or how to use this application...">
+                <button id="chat-send-btn" class="btn-primary">Send</button>
+            </div>
         </div>
-      </div>
-    </div>
+    
+        <div class="quick-questions-container">
+            <h3 class="section-title">Try asking</h3>
+            <div class="quick-question-chips">
+                <button class="quick-question-chip">What are HS codes?</button>
+                <button class="quick-question-chip">Explain imports vs exports</button>
+                <button class="quick-question-chip">What does HS code 8471 represent?</button>
+                <button class="quick-question-chip">How to interpret trade data?</button>
+                <button class="quick-question-chip">Recommend trade patterns to explore</button>
+            </div>
+        </div>
+        
+        <div class="assistant-tools">
+            <h3 class="section-title">Specialized Tools</h3>
+            <div class="tools-grid">
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <i class="fas fa-search"></i>
+                        <h4>HS Code Lookup</h4>
+                    </div>
+                    <div class="tool-content">
+                        <div class="input-with-button">
+                            <input type="text" id="hs-code-input" placeholder="Enter HS code (e.g. 8471)">
+                            <button id="explain-hs-btn" class="btn-success">Explain</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tool-card">
+                    <div class="tool-header">
+                        <i class="fas fa-lightbulb"></i>
+                        <h4>Trade Insights</h4>
+                    </div>
+                    <div class="tool-content">
+                        <div class="form-group">
+                            <select id="recommendation-country">
+                                <option value="">Select a country (optional)</option>
+                                <!-- Will be populated from COUNTRY_CODES -->
+                            </select>
+                        </div>
+                        <div class="input-with-button">
+                            <input type="text" id="recommendation-product" placeholder="Product (optional)">
+                            <button id="get-recommendation-btn" class="btn-info">Get Insights</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
   </div>
 </div>
 
